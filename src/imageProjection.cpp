@@ -181,21 +181,22 @@ public:
         imuQueue.push_back(thisImu);
 
         // debug IMU data
-        // cout << std::setprecision(6);
-        // cout << "IMU acc: " << endl;
-        // cout << "x: " << thisImu.linear_acceleration.x << 
+        // std::cout << std::setprecision(6);
+        // std::cout << "IMU acc: " << std::endl;
+        // std::cout << "x: " << thisImu.linear_acceleration.x << 
         //       ", y: " << thisImu.linear_acceleration.y << 
-        //       ", z: " << thisImu.linear_acceleration.z << endl;
-        // cout << "IMU gyro: " << endl;
-        // cout << "x: " << thisImu.angular_velocity.x << 
+        //       ", z: " << thisImu.linear_acceleration.z << std::endl;
+        // std::cout << "IMU gyro: " << std::endl;
+        // std::cout << "x: " << thisImu.angular_velocity.x << 
         //       ", y: " << thisImu.angular_velocity.y << 
-        //       ", z: " << thisImu.angular_velocity.z << endl;
+        //       ", z: " << thisImu.angular_velocity.z << std::endl;
+
         // double imuRoll, imuPitch, imuYaw;
         // tf2::Quaternion orientation;
         // tf2::fromMsg(thisImu.orientation, orientation);
         // tf2::Matrix3x3(orientation).getRPY(imuRoll, imuPitch, imuYaw);
-        // cout << "IMU roll pitch yaw: " << endl;
-        // cout << "roll: " << imuRoll << ", pitch: " << imuPitch << ", yaw: " << imuYaw << endl << endl;
+        // std::cout << "IMU roll pitch yaw: " << std::endl;
+        // std::cout << "roll: " << imuRoll << ", pitch: " << imuPitch << ", yaw: " << imuYaw << std::endl << std::endl;
     }
 
     void odometryHandler(const nav_msgs::msg::Odometry::SharedPtr odometryMsg)
@@ -571,6 +572,7 @@ public:
                 continue;
 
             int rowIdn = laserCloudIn->points[i].ring;
+
             // if sensor is a velodyne (ringFlag = 2) calculate rowIdn based on number of scans
             if (ringFlag == 2) { 
                 float verticalAngle =
@@ -583,7 +585,7 @@ public:
             if (rowIdn < 0 || rowIdn >= N_SCAN)
                 continue;
 
-            if (rowIdn % downsampleRate != 0)
+            if (rowIdn % downsampleRate != 0) 
                 continue;
 
             int columnIdn = -1;
@@ -600,7 +602,6 @@ public:
                 columnIdn = columnIdnCountVec[rowIdn];
                 columnIdnCountVec[rowIdn] += 1;
             }
-
 
             if (columnIdn < 0 || columnIdn >= Horizon_SCAN)
                 continue;
