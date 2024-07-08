@@ -2,66 +2,49 @@
   ros__parameters:
 
     # Topics
-    pointCloudTopic: "/ouster/points"           # Point cloud data
-    imuTopic: "/Imu"                            # IMU data
-    # imuTopic: "/lio_sam/imu/imu_corrected"
-    odomTopic: "odometry/imu"                   # IMU pre-preintegration odometry, same frequency as IMU
-    gpsTopic: "/NavSatFix"                      # GPS odometry topic from navsat, see module_navsat.launch file
-    #gpsOdomTopic: "/NavOdom"                    # GPS odometry topic from navsat, see module_navsat.launch file
-    gpsOdomTopic: "/lio_sam/gps/odom"
+    pointCloudTopic: "/lidar/data"                   # Point cloud data
+    imuTopic: "/imu/data"                  # IMU data
+    odomTopic: "odometry/imu"                    # IMU pre-preintegration odometry, same frequency as IMU
+    gpsTopic: "/gps/data"                    # GPS odometry topic from navsat, see module_navsat.launch file
 
     # Frames
-    lidarFrame: "base_link"
+    lidarFrame: "lidar_frame"
     baselinkFrame: "base_link"
-    odometryFrame: "odom"
+    odometryFrame: "/lio/odom"
     mapFrame: "map"
 
     # GPS Settings
     useImuHeadingInitialization: true           # if using GPS data, set to "true"
-    useGpsElevation: true                       # if GPS elevation is bad, set to "false"
-    gpsCovThreshold: 2.0                         # m^2, threshold for using GPS data
+    useGpsElevation: false                       # if GPS elevation is bad, set to "false"
+    gpsCovThreshold: 5.0                         # m^2, threshold for using GPS data
     poseCovThreshold: 25.0                       # m^2, threshold for using GPS data
-    gpsPointThreshold: 2.0                       # m, distance between GPS points for adding factor
 
     # Export settings
     savePCD: true                               # https://github.com/TixiaoShan/LIO-SAM/issues/3
     savePCDDirectory: "/Downloads/LOAM/"         # in your home folder, starts and ends with "/". Warning: the code deletes "LOAM" folder then recreates it. See "mapOptimization" for implementation
 
     # Sensor Settings
-    sensor: ouster                               # lidar sensor type, either 'velodyne', 'ouster' or 'livox'
+    sensor: velodyne                               # lidar sensor type, either 'velodyne', 'ouster' or 'livox'
     N_SCAN: 128                                   # number of lidar channels (i.e., Velodyne/Ouster: 16, 32, 64, 128, Livox Horizon: 6)
     Horizon_SCAN: 2048                            # lidar horizontal resolution (Velodyne:1800, Ouster:512,1024,2048, Livox Horizon: 4000)
     downsampleRate: 1                            # default: 1. Downsample your data if too many
     # points. i.e., 16 = 64 / 4, 16 = 16 / 1
-    lidarMinRange: 2.0                           # default: 1.0, minimum lidar range to be used
-    lidarMaxRange: 1000.0                     # default: 1000.0, maximum lidar range to be used
+    lidarMinRange: 10.0                           # default: 1.0, minimum lidar range to be used
+    lidarMaxRange: 1000.0                        # default: 1000.0, maximum lidar range to be used
 
     # IMU Settings
-    imuAccNoise: 0.01 # Spatial - 0.062, Certus - 0.003
-    imuGyrNoise: 0.001 # Spatial - 0.0067, Certus - 0.0002
-    imuAccBiasN: 0.00001
-    imuGyrBiasN: 0.00001
+    imuAccNoise: 3.9939570888238808e-03
+    imuGyrNoise: 1.5636343949698187e-03
+    imuAccBiasN: 6.4356659353532566e-05
+    imuGyrBiasN: 3.5640318696367613e-05
 
     imuGravity: 9.80511
     imuRPYWeight: 0.01
 
-    # spatial
-    # extrinsicTrans:  [ -0.023,  0.13,  -0.07 ]
-    
-    # extrinsicRot:    [-1.0,  0.0,  0.0,
-    #                    0.0,  1.0,  0.0,
-    #                    0.0,  0.0, -1.0 ]
-    
-    # extrinsicRPY: [ 1.0,  0.0,  0.0,
-    #                  0.0,  1.0,  0.0,
-    #                  0.0,  0.0,  1.0 ]
-
-    # Certus
-    extrinsicTrans:  [ -0.085,  0.0,  -0.055 ]
+    extrinsicTrans:  [ 0.0,  0.0,  0.0 ]
     extrinsicRot:    [1.0,  0.0,  0.0,
-                      0.0,  1.0,  0.0,
-                      0.0,  0.0,  1.0 ]
-    
+                       0.0,  1.0,  0.0,
+                       0.0,  0.0, 1.0 ]
     extrinsicRPY: [ 1.0,  0.0,  0.0,
                     0.0,  1.0,  0.0,
                     0.0,  0.0,  1.0 ]
@@ -78,12 +61,12 @@
     mappingSurfLeafSize: 0.4                      # default: 0.4 - outdoor, 0.2 - indoor
 
     # robot motion constraint (in case you are using a 2D robot)
-    z_tolerance: 5.0 #5.0                          # meters
-    rotation_tolerance: 1000.0 #6.5                   # radians
+    z_tolerance: 1000.0                          # meters
+    rotation_tolerance: 1000.0                   # radians
 
     # CPU Params
-    numberOfCores: 10                             # number of cores for mapping optimization
-    mappingProcessInterval: 0.1               # seconds, regulate mapping frequency
+    numberOfCores: 8                              # number of cores for mapping optimization
+    mappingProcessInterval: 0.15                  # seconds, regulate mapping frequency
 
     # Surrounding map
     surroundingkeyframeAddingDistThreshold: 1.0   # meters, regulate keyframe adding threshold
@@ -96,9 +79,9 @@
     loopClosureEnableFlag: true
     loopClosureFrequency: 1.0                     # Hz, regulate loop closure constraint add frequency
     surroundingKeyframeSize: 50                   # submap size (when loop closure enabled)
-    historyKeyframeSearchRadius: 50.0             # meters, key frame that is within n meters from
+    historyKeyframeSearchRadius: 75.0             # meters, key frame that is within n meters from
     # current pose will be considerd for loop closure
-    historyKeyframeSearchTimeDiff: 30.0          # seconds, key frame that is n seconds older will be
+    historyKeyframeSearchTimeDiff: 30.0           # seconds, key frame that is n seconds older will be
     # considered for loop closure
     historyKeyframeSearchNum: 25                  # number of hostory key frames will be fused into a
     # submap for loop closure

@@ -74,6 +74,7 @@ public:
     string imuTopic;
     string odomTopic;
     string gpsTopic;
+    string gpsOdomTopic;
 
     //Frames
     string lidarFrame;
@@ -86,6 +87,7 @@ public:
     bool useGpsElevation;
     float gpsCovThreshold;
     float poseCovThreshold;
+    float gpsPointThreshold;
 
     // Save pcd
     bool savePCD;
@@ -125,8 +127,8 @@ public:
     float mappingCornerLeafSize;
     float mappingSurfLeafSize ;
 
-    float z_tollerance;
-    float rotation_tollerance;
+    float z_tolerance;
+    float rotation_tolerance;
 
     // CPU Params
     int numberOfCores;
@@ -160,8 +162,10 @@ public:
         get_parameter("imuTopic", imuTopic);
         declare_parameter("odomTopic", "lio_sam/odometry/imu");
         get_parameter("odomTopic", odomTopic);
-        declare_parameter("gpsTopic", "lio_sam/odometry/gps");
+        declare_parameter("gpsTopic", "lio_sam/fix/gps");
         get_parameter("gpsTopic", gpsTopic);
+        declare_parameter("gpsOdomTopic", "lio_sam/odometry/gps");
+        get_parameter("gpsOdomTopic", gpsOdomTopic);
 
         declare_parameter("lidarFrame", "laser_data_frame");
         get_parameter("lidarFrame", lidarFrame);
@@ -180,6 +184,8 @@ public:
         get_parameter("gpsCovThreshold", gpsCovThreshold);
         declare_parameter("poseCovThreshold", 25.0);
         get_parameter("poseCovThreshold", poseCovThreshold);
+        declare_parameter("gpsPointThreshold", 5.0);
+        get_parameter("gpsPointThreshold", gpsPointThreshold);
 
         declare_parameter("savePCD", false);
         get_parameter("savePCD", savePCD);
@@ -251,6 +257,8 @@ public:
         extTrans = Eigen::Map<const Eigen::Matrix<double, -1, -1, Eigen::RowMajor>>(extTransV.data(), 3, 1);
         extQRPY = Eigen::Quaterniond(extRPY);
 
+        // std::cout << "Ext RPY Quat: " << extQRPY.w() << ", " << extQRPY.x() << ", " << extQRPY.y() << ", " << extQRPY.z() << std::endl;
+
         declare_parameter("edgeThreshold", 1.0);
         get_parameter("edgeThreshold", edgeThreshold);
         declare_parameter("surfThreshold", 0.1);
@@ -267,10 +275,10 @@ public:
         declare_parameter("mappingSurfLeafSize", 0.4);
         get_parameter("mappingSurfLeafSize", mappingSurfLeafSize);
 
-        declare_parameter("z_tollerance", 1000.0);
-        get_parameter("z_tollerance", z_tollerance);
-        declare_parameter("rotation_tollerance", 1000.0);
-        get_parameter("rotation_tollerance", rotation_tollerance);
+        declare_parameter("z_tolerance", 1000.0);
+        get_parameter("z_tolerance", z_tolerance);
+        declare_parameter("rotation_tolerance", 1000.0);
+        get_parameter("rotation_tolerance", rotation_tolerance);
 
         declare_parameter("numberOfCores", 4);
         get_parameter("numberOfCores", numberOfCores);
@@ -326,13 +334,19 @@ public:
         imu_out.angular_velocity.x = gyr.x();
         imu_out.angular_velocity.y = gyr.y();
         imu_out.angular_velocity.z = gyr.z();
+
         // rotate roll pitch yaw
         Eigen::Quaterniond q_from(imu_in.orientation.w, imu_in.orientation.x, imu_in.orientation.y, imu_in.orientation.z);
-        Eigen::Quaterniond q_final = q_from * extQRPY;
+        Eigen::Quaterniond q_extQRPY = extQRPY.inverse();
+        Eigen::Quaterniond q_final = q_extQRPY * q_from;
         imu_out.orientation.x = q_final.x();
         imu_out.orientation.y = q_final.y();
         imu_out.orientation.z = q_final.z();
         imu_out.orientation.w = q_final.w();
+
+        // std::cout << "Inv Ext RPY Quat: " << q_extQRPY.w() << ", " << q_extQRPY.x() << ", " << q_extQRPY.y() << ", " << q_extQRPY.z() << std::endl;
+        // std::cout << "I Quat: " << imu_in.orientation.w << ", " << imu_in.orientation.x << ", " << imu_in.orientation.y << ", " << imu_in.orientation.z << std::endl;
+        // std::cout << "O Quat: " << imu_out.orientation.w << ", " << imu_out.orientation.x << ", " << imu_out.orientation.y << ", " << imu_out.orientation.z << std::endl;
 
         if (sqrt(q_final.x()*q_final.x() + q_final.y()*q_final.y() + q_final.z()*q_final.z() + q_final.w()*q_final.w()) < 0.1)
         {

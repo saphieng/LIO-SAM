@@ -226,7 +226,7 @@ public:
 
                 for (int k = sp; k <= ep; k++)
                 {
-                    if (cloudLabel[k] <= 0){
+                    if (cloudLabel[k] < 0){
                         surfaceCloudScan->push_back(extractedCloud->points[k]);
                     }
                 }

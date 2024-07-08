@@ -170,7 +170,7 @@ public:
             "lio_sam/feature/cloud_info", qos,
             std::bind(&mapOptimization::laserCloudInfoHandler, this, std::placeholders::_1));
         subGPS = create_subscription<nav_msgs::msg::Odometry>(
-            gpsTopic, 200,
+            gpsOdomTopic, qos,
             std::bind(&mapOptimization::gpsHandler, this, std::placeholders::_1));
         subLoop = create_subscription<std_msgs::msg::Float64MultiArray>(
             "lio_loop/loop_closure_detection", qos,
@@ -315,7 +315,7 @@ public:
 
             updateInitialGuess();
 
-            extractSurroundingKeyFrames();
+            extractSurroundingKeyFrames(); //zzCJ: Problem here
 
             downsampleCurrentScan();
 
@@ -333,6 +333,7 @@ public:
 
     void gpsHandler(const nav_msgs::msg::Odometry::SharedPtr gpsMsg)
     {
+        // std::cout << " ** GPS MESSAGE RECIEVED ** " << std::endl; // zzCJ
         gpsQueue.push_back(*gpsMsg);
     }
 
@@ -773,16 +774,6 @@ public:
         markerArray.markers.push_back(markerEdge);
         pubLoopConstraintEdge->publish(markerArray);
     }
-
-
-
-
-
-
-
-    
-
-
 
     void updateInitialGuess()
     {
@@ -1277,6 +1268,7 @@ public:
                             pow(matX.at<float>(5, 0) * 100, 2));
 
         if (deltaR < 0.05 && deltaT < 0.05) {
+
             return true; // converged
         }
         return false; // keep optimizing
@@ -1334,12 +1326,18 @@ public:
                 imuQuaternion.setRPY(0, cloudInfo.imu_pitch_init, 0);
                 tf2::Matrix3x3(transformQuaternion.slerp(imuQuaternion, imuWeight)).getRPY(rollMid, pitchMid, yawMid);
                 transformTobeMapped[1] = pitchMid;
+
+                // // slerp yaw
+                // transformQuaternion.setRPY(0, 0, transformTobeMapped[2]);
+                // imuQuaternion.setRPY(0, 0, cloudInfo.imu_yaw_init);
+                // tf2::Matrix3x3(transformQuaternion.slerp(imuQuaternion, imuWeight)).getRPY(rollMid, pitchMid, yawMid);
+                // transformTobeMapped[2] = yawMid;
             }
         }
 
-        transformTobeMapped[0] = constraintTransformation(transformTobeMapped[0], rotation_tollerance);
-        transformTobeMapped[1] = constraintTransformation(transformTobeMapped[1], rotation_tollerance);
-        transformTobeMapped[5] = constraintTransformation(transformTobeMapped[5], z_tollerance);
+        transformTobeMapped[0] = constraintTransformation(transformTobeMapped[0], rotation_tolerance);
+        transformTobeMapped[1] = constraintTransformation(transformTobeMapped[1], rotation_tolerance);
+        transformTobeMapped[5] = constraintTransformation(transformTobeMapped[5], z_tolerance);
 
         incrementalOdometryAffineBack = trans2Affine3f(transformTobeMapped);
     }
@@ -1388,7 +1386,9 @@ public:
             noiseModel::Diagonal::shared_ptr priorNoise = noiseModel::Diagonal::Variances((Vector(6) << 1e-2, 1e-2, M_PI*M_PI, 1e8, 1e8, 1e8).finished()); // rad*rad, meter*meter
             gtSAMgraph.add(PriorFactor<Pose3>(0, trans2gtsamPose(transformTobeMapped), priorNoise));
             initialEstimate.insert(0, trans2gtsamPose(transformTobeMapped));
-        }else{
+        }
+        else
+        {
             noiseModel::Diagonal::shared_ptr odometryNoise = noiseModel::Diagonal::Variances((Vector(6) << 1e-6, 1e-6, 1e-6, 1e-4, 1e-4, 1e-4).finished());
             gtsam::Pose3 poseFrom = pclPointTogtsamPose3(cloudKeyPoses6D->points.back());
             gtsam::Pose3 poseTo   = trans2gtsamPose(transformTobeMapped);
@@ -1400,20 +1400,28 @@ public:
     void addGPSFactor()
     {
         if (gpsQueue.empty())
+        {
             return;
+        }
 
         // wait for system initialized and settles down
-        if (cloudKeyPoses3D->points.empty())
+        if (cloudKeyPoses3D->points.empty()) 
+        {
             return;
+        }
         else
         {
             if (pointDistance(cloudKeyPoses3D->front(), cloudKeyPoses3D->back()) < 5.0)
+            {
                 return;
+            }
         }
 
         // pose covariance small, no need to correct
         if (poseCovariance(3,3) < poseCovThreshold && poseCovariance(4,4) < poseCovThreshold)
+        {
             return;
+        }
 
         // last gps position
         static PointType lastGPSPoint;
@@ -1439,11 +1447,17 @@ public:
                 float noise_x = thisGPS.pose.covariance[0];
                 float noise_y = thisGPS.pose.covariance[7];
                 float noise_z = thisGPS.pose.covariance[14];
+                
                 if (noise_x > gpsCovThreshold || noise_y > gpsCovThreshold)
+                {
                     continue;
+                }
+
                 float gps_x = thisGPS.pose.pose.position.x;
                 float gps_y = thisGPS.pose.pose.position.y;
                 float gps_z = thisGPS.pose.pose.position.z;
+                
+                
                 if (!useGpsElevation)
                 {
                     gps_z = transformTobeMapped[5];
@@ -1452,17 +1466,24 @@ public:
 
                 // GPS not properly initialized (0,0,0)
                 if (abs(gps_x) < 1e-6 && abs(gps_y) < 1e-6)
+                {
                     continue;
+                }
 
                 // Add GPS every a few meters
                 PointType curGPSPoint;
                 curGPSPoint.x = gps_x;
                 curGPSPoint.y = gps_y;
                 curGPSPoint.z = gps_z;
-                if (pointDistance(curGPSPoint, lastGPSPoint) < 5.0)
+
+                if (pointDistance(curGPSPoint, lastGPSPoint) < gpsPointThreshold)
+                {
                     continue;
+                }
                 else
+                {
                     lastGPSPoint = curGPSPoint;
+                }
 
                 gtsam::Vector Vector3(3);
                 Vector3 << max(noise_x, 1.0f), max(noise_y, 1.0f), max(noise_z, 1.0f);
@@ -1471,6 +1492,8 @@ public:
                 gtSAMgraph.add(gps_factor);
 
                 aLoopIsClosed = true;
+
+                // RCLCPP_INFO(rclcpp::get_logger("rclcpp"), "** GPS Update Performed.");
                 break;
             }
         }
@@ -1505,12 +1528,15 @@ public:
         addOdomFactor();
 
         // gps factor
+        // std::cout << "****************************************************" << std::endl;
+        // std::cout << "****************** ADD GPS FACTOR ******************" << std::endl;
         addGPSFactor();
+        // std::cout << "****************************************************" << std::endl;
 
         // loop factor
         addLoopFactor();
 
-        // cout << "****************************************************" << endl;
+        // std::cout << "****************************************************" << std::endl;
         // gtSAMgraph.print("GTSAM Graph:\n");
 
         // update iSAM
@@ -1657,7 +1683,7 @@ public:
         tf2::Stamped<tf2::Transform> temp_odom_to_lidar(t_odom_to_lidar, time_point, odometryFrame);
         geometry_msgs::msg::TransformStamped trans_odom_to_lidar;
         tf2::convert(temp_odom_to_lidar, trans_odom_to_lidar);
-        trans_odom_to_lidar.child_frame_id = "lidar_link";
+        trans_odom_to_lidar.child_frame_id = lidarFrame;
         br->sendTransform(trans_odom_to_lidar);
 
         // Publish odometry for ROS (incremental)
@@ -1694,6 +1720,12 @@ public:
                     imuQuaternion.setRPY(0, cloudInfo.imu_pitch_init, 0);
                     tf2::Matrix3x3(transformQuaternion.slerp(imuQuaternion, imuWeight)).getRPY(rollMid, pitchMid, yawMid);
                     pitch = pitchMid;
+
+                    // // slerp yaw
+                    // transformQuaternion.setRPY(0, 0, yaw);
+                    // imuQuaternion.setRPY(0, 0, cloudInfo.imu_yaw_init);
+                    // tf2::Matrix3x3(transformQuaternion.slerp(imuQuaternion, imuWeight)).getRPY(rollMid, pitchMid, yawMid);
+                    // yaw = yawMid;
                 }
             }
             laserOdomIncremental.header.stamp = timeLaserInfoStamp;

@@ -19,7 +19,7 @@ def generate_launch_description():
             share_dir, 'config', 'params.yaml'),
         description='FPath to the ROS2 parameters file to use.')
 
-    print("urdf_file_name : {}".format(xacro_path))
+    # print("urdf_file_name : {}".format(xacro_path))
 
     return LaunchDescription([
         params_declare,
@@ -29,7 +29,7 @@ def generate_launch_description():
             arguments='0.0 0.0 0.0 0.0 0.0 0.0 map odom'.split(' '),
             parameters=[parameter_file],
             output='screen'
-            ),
+        ),
         Node(
             package='robot_state_publisher',
             executable='robot_state_publisher',
@@ -41,16 +41,26 @@ def generate_launch_description():
         ),
         Node(
             package='lio_sam',
-            executable='lio_sam_imuPreintegration',
-            name='lio_sam_imuPreintegration',
+            executable='lio_sam_simpleGpsOdom',
+            name='lio_sam_simpleGpsOdom',
             parameters=[parameter_file],
+            arguments=['--ros-args', '--log-level', 'info'],
             output='screen'
         ),
+        # Node(
+        #     package='lio_sam',
+        #     executable='lio_sam_imuPreintegration',
+        #     name='lio_sam_imuPreintegration',
+        #     parameters=[parameter_file],
+        #     arguments=['--ros-args', '--log-level', 'info'],
+        #     output='screen'
+        # ),
         Node(
             package='lio_sam',
             executable='lio_sam_imageProjection',
             name='lio_sam_imageProjection',
             parameters=[parameter_file],
+            arguments=['--ros-args', '--log-level', 'info'],
             output='screen'
         ),
         Node(
@@ -58,6 +68,7 @@ def generate_launch_description():
             executable='lio_sam_featureExtraction',
             name='lio_sam_featureExtraction',
             parameters=[parameter_file],
+            arguments=['--ros-args', '--log-level', 'info'],
             output='screen'
         ),
         Node(
@@ -65,6 +76,7 @@ def generate_launch_description():
             executable='lio_sam_mapOptimization',
             name='lio_sam_mapOptimization',
             parameters=[parameter_file],
+            arguments=['--ros-args', '--log-level', 'info'],
             output='screen'
         ),
         Node(
