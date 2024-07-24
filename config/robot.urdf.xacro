@@ -22,13 +22,13 @@
   <joint name="imu_joint" type="fixed">
     <parent link="chassis_link" />
     <child link="imu" />
-    <origin xyz="-0.085 0.0 -0.055" rpy="0 0 0" />
+    <origin xyz="0.0 0.0 -0.0946" rpy="0 0 0" />
   </joint>
 
-  <link name="zed_camera_link"> </link>
+  <link name="zed_camera_center"> </link>
   <joint name="zed_joint" type="fixed">
     <parent link="chassis_link" />
-    <child link="zed_camera_link" />
+    <child link="zed_camera_center" />
     <origin xyz="0.0287 0 -0.0485" rpy="0 0 ${pi}" />
   </joint>
 
@@ -36,7 +36,7 @@
   <joint name="gps_joint" type="fixed">
     <parent link="chassis_link" />
     <child link="gps" />
-    <origin xyz="-0.085 0.0 -0.055" rpy="0 0 0" />
+    <origin xyz="0.0 0.0 -0.0946" rpy="0 0 0" />
   </joint>
 
 </robot>

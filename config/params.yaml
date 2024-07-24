@@ -21,7 +21,7 @@
     useGpsElevation: true                       # if GPS elevation is bad, set to "false"
     gpsCovThreshold: 2.0                         # m^2, threshold for using GPS data
     poseCovThreshold: 25.0                       # m^2, threshold for using GPS data
-    gpsPointThreshold: 2.0                       # m, distance between GPS points for adding factor
+    gpsPointThreshold: 5.0                       # m, distance between GPS points for adding factor
 
     # Export settings
     savePCD: true                               # https://github.com/TixiaoShan/LIO-SAM/issues/3
@@ -57,7 +57,7 @@
     #                  0.0,  0.0,  1.0 ]
 
     # Certus
-    extrinsicTrans:  [ -0.085,  0.0,  -0.055 ]
+    extrinsicTrans:  [ 0.0,  0.0,  -0.0946 ]
     extrinsicRot:    [1.0,  0.0,  0.0,
                       0.0,  1.0,  0.0,
                       0.0,  0.0,  1.0 ]
@@ -73,9 +73,9 @@
     surfFeatureMinValidNum: 100
 
     # voxel filter paprams
-    odometrySurfLeafSize: 0.4                     # default: 0.4 - outdoor, 0.2 - indoor
-    mappingCornerLeafSize: 0.2                    # default: 0.2 - outdoor, 0.1 - indoor
-    mappingSurfLeafSize: 0.4                      # default: 0.4 - outdoor, 0.2 - indoor
+    odometrySurfLeafSize: 0.2                     # default: 0.4 - outdoor, 0.2 - indoor
+    mappingCornerLeafSize: 0.1                    # default: 0.2 - outdoor, 0.1 - indoor
+    mappingSurfLeafSize: 0.2                      # default: 0.4 - outdoor, 0.2 - indoor
 
     # robot motion constraint (in case you are using a 2D robot)
     z_tolerance: 5.0 #5.0                          # meters
@@ -89,14 +89,14 @@
     surroundingkeyframeAddingDistThreshold: 1.0   # meters, regulate keyframe adding threshold
     surroundingkeyframeAddingAngleThreshold: 0.2  # radians, regulate keyframe adding threshold
     surroundingKeyframeDensity: 2.0               # meters, downsample surrounding keyframe poses   
-    surroundingKeyframeSearchRadius: 50.0         # meters, within n meters scan-to-map optimization
+    surroundingKeyframeSearchRadius: 25.0         # meters, within n meters scan-to-map optimization
     # (when loop closure disabled)
 
     # Loop closure
     loopClosureEnableFlag: true
     loopClosureFrequency: 1.0                     # Hz, regulate loop closure constraint add frequency
     surroundingKeyframeSize: 50                   # submap size (when loop closure enabled)
-    historyKeyframeSearchRadius: 50.0             # meters, key frame that is within n meters from
+    historyKeyframeSearchRadius: 25.0             # meters, key frame that is within n meters from
     # current pose will be considerd for loop closure
     historyKeyframeSearchTimeDiff: 30.0          # seconds, key frame that is n seconds older will be
     # considered for loop closure
@@ -106,5 +106,6 @@
 
     # Visualization
     globalMapVisualizationSearchRadius: 1000.0    # meters, global map visualization radius
-    globalMapVisualizationPoseDensity: 1.0       # meters, global map visualization keyframe density
-    globalMapVisualizationLeafSize: 1.0           # meters, global map visualization cloud density
+    globalMapVisualizationPoseDensity: 1.0        # meters, global map visualization keyframe density
+    globalMapVisualizationLeafSize: 0.1           # meters, global map visualization cloud density
+    globalMapLeafSize: 0.1                        # meters, global map cloud density

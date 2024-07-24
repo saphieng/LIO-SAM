@@ -79,6 +79,14 @@ def generate_launch_description():
             arguments=['--ros-args', '--log-level', 'info'],
             output='screen'
         ),
+        # Node(
+        #     package='lio_sam',
+        #     executable='lio_sam_highResMapping',
+        #     name='lio_sam_highResMapping',
+        #     parameters=[parameter_file],
+        #     arguments=['--ros-args', '--log-level', 'info'],
+        #     output='screen'
+        # ),
         Node(
             package='rviz2',
             executable='rviz2',

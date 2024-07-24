@@ -1,53 +1,36 @@
 #include "utility.hpp"
+#include <pcl/filters/voxel_grid.h>
 
 const int queueLength = 2000;
 
 class HighResolutionMapping : public ParamServer
 {
 private:
-
-    std::mutex imuLock;
+    std::mutex lasLock;
     std::mutex odoLock;
 
     rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr subLaserCloud;
     rclcpp::CallbackGroup::SharedPtr callbackGroupLidar;
-    rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr pubLaserCloud;
+    std::deque<sensor_msgs::msg::PointCloud2> cloudQueue;
 
     rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr subOdom;
     rclcpp::CallbackGroup::SharedPtr callbackGroupOdom;
     std::deque<nav_msgs::msg::Odometry> odomQueue;
 
-    std::deque<sensor_msgs::msg::PointCloud2> cloudQueue;
+    rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr pubFullCloud;
+
     sensor_msgs::msg::PointCloud2 currentCloudMsg;
-    
-    int imuPointerCur;
-    bool firstPointFlag;
-    Eigen::Affine3f transStartInverse;
 
-    pcl::PointCloud<PointType>::Ptr laserCloudIn;
-    pcl::PointCloud<PointType>::Ptr   fullCloud;
+    pcl::PointCloud<PointType>::Ptr tmpCloud;
 
+    pcl::PointCloud<PointType>::Ptr fullCloud;
+    pcl::PointCloud<PointType>::Ptr voxelCloud;
 
-    int ringFlag = 0;
-    int deskewFlag;
-    cv::Mat rangeMat;
-
-    bool odomDeskewFlag;
-    float odomIncreX;
-    float odomIncreY;
-    float odomIncreZ;
-
-    lio_sam::msg::CloudInfo cloudInfo;
-    double timeScanCur;
-    double timeScanEnd;
-    std_msgs::msg::Header cloudHeader;
-
-    vector<int> columnIdnCountVec;
-
+    // Voxel
+    pcl::VoxelGrid<pcl::PointXYZI> voxelFilter;
 
 public:
-    HighResolutionMapping(const rclcpp::NodeOptions & options) :
-            ParamServer("lio_sam_highResMapping", options), deskewFlag(0)
+    HighResolutionMapping(const rclcpp::NodeOptions &options) : ParamServer("lio_sam_highResMapping", options)
     {
         callbackGroupLidar = create_callback_group(
             rclcpp::CallbackGroupType::MutuallyExclusive);
@@ -60,7 +43,7 @@ public:
         odomOpt.callback_group = callbackGroupOdom;
 
         subOdom = create_subscription<nav_msgs::msg::Odometry>(
-            odomTopic + "_incremental", qos_imu,
+            "lio_sam/mapping/odometry", qos_imu,
             std::bind(&HighResolutionMapping::odometryHandler, this, std::placeholders::_1),
             odomOpt);
         subLaserCloud = create_subscription<sensor_msgs::msg::PointCloud2>(
@@ -68,74 +51,34 @@ public:
             std::bind(&HighResolutionMapping::cloudHandler, this, std::placeholders::_1),
             lidarOpt);
 
-        pubExtractedCloud = create_publisher<sensor_msgs::msg::PointCloud2>(
+        pubFullCloud = create_publisher<sensor_msgs::msg::PointCloud2>(
             "lio_sam/cloud_world", 1);
 
         allocateMemory();
         resetParameters();
+
+        voxelFilter.setLeafSize(globalMapLeafSize, globalMapLeafSize, globalMapLeafSize);
 
         pcl::console::setVerbosityLevel(pcl::console::L_ERROR);
     }
 
     void allocateMemory()
     {
-        laserCloudIn.reset(new pcl::PointCloud<PointXYZIRT>());
-        tmpOusterCloudIn.reset(new pcl::PointCloud<OusterPointXYZIRT>());
+        tmpCloud.reset(new pcl::PointCloud<PointType>());
         fullCloud.reset(new pcl::PointCloud<PointType>());
-        extractedCloud.reset(new pcl::PointCloud<PointType>());
-
-        fullCloud->points.resize(N_SCAN*Horizon_SCAN);
+        voxelCloud.reset(new pcl::PointCloud<PointType>());
 
         resetParameters();
     }
 
     void resetParameters()
     {
-        laserCloudIn->clear();
-        extractedCloud->clear();
-        // reset range matrix for range image projection
-        rangeMat = cv::Mat(N_SCAN, Horizon_SCAN, CV_32F, cv::Scalar::all(FLT_MAX));
-
-        imuPointerCur = 0;
-        firstPointFlag = true;
-        odomDeskewFlag = false;
-
-        for (int i = 0; i < queueLength; ++i)
-        {
-            imuTime[i] = 0;
-            imuRotX[i] = 0;
-            imuRotY[i] = 0;
-            imuRotZ[i] = 0;
-        }
+        tmpCloud->clear();
+        fullCloud->clear();
+        voxelCloud->clear();
     }
 
-    ~ImageProjection(){}
-
-    void imuHandler(const sensor_msgs::msg::Imu::SharedPtr imuMsg)
-    {
-        sensor_msgs::msg::Imu thisImu = imuConverter(*imuMsg);
-
-        std::lock_guard<std::mutex> lock1(imuLock);
-        imuQueue.push_back(thisImu);
-
-        // // debug IMU data
-        // std::cout << std::setprecision(6);
-        // std::cout << "IMU acc: " << std::endl;
-        // std::cout << "x: " << thisImu.linear_acceleration.x << std::endl; 
-        // std::cout << "y: " << thisImu.linear_acceleration.y << std::endl; 
-        // std::cout << "z: " << thisImu.linear_acceleration.z << std::endl;
-        // std::cout << "IMU gyro: " << std::endl;
-        // std::cout << "x: " << thisImu.angular_velocity.x << std::endl; 
-        // std::cout << "y: " << thisImu.angular_velocity.y << std::endl; 
-        // std::cout << "z: " << thisImu.angular_velocity.z << std::endl;
-
-        // double imuRoll, imuPitch, imuYaw;
-        // tf2::Quaternion orientation;
-        // tf2::fromMsg(thisImu.orientation, orientation);
-        // tf2::Matrix3x3(orientation).getRPY(imuRoll, imuPitch, imuYaw);
-        // std::cout << "IMU roll pitch yaw: " << std::endl;
-        // std::cout << "roll: " << imuRoll*180.0f/M_PI << "\npitch: " << imuPitch*180.0f/M_PI << "\nyaw: " << imuYaw*180.0f/M_PI << std::endl << std::endl;
-    }
+    ~HighResolutionMapping() {}
 
     void odometryHandler(const nav_msgs::msg::Odometry::SharedPtr odometryMsg)
     {
@@ -145,233 +88,120 @@ public:
 
     void cloudHandler(const sensor_msgs::msg::PointCloud2::SharedPtr laserCloudMsg)
     {
-        if (!cachePointCloud(laserCloudMsg))
-            return;
-
-        if (!deskewInfo())
-            return;
-
-        projectPointCloud();
-
-        cloudExtraction();
-
-        publishClouds();
-
-        resetParameters();
-    }
-
-    bool cachePointCloud(const sensor_msgs::msg::PointCloud2::SharedPtr& laserCloudMsg)
-    {
-        // cache point cloud
+        std::lock_guard<std::mutex> lock2(lasLock);
         cloudQueue.push_back(*laserCloudMsg);
+
         if (cloudQueue.size() <= 2)
-            return false;
+            return;
 
         // convert cloud
         currentCloudMsg = std::move(cloudQueue.front());
         cloudQueue.pop_front();
-        if (sensor == SensorType::VELODYNE || sensor == SensorType::LIVOX)
+        pcl::moveFromROSMsg(currentCloudMsg, *tmpCloud);
+
+        double timeScanCur = stamp2Sec(currentCloudMsg.header.stamp);
+        
+        // Sync odometry
+        while (!odomQueue.empty())
         {
-            pcl::moveFromROSMsg(currentCloudMsg, *laserCloudIn);  
-        }
-        else if (sensor == SensorType::OUSTER)
-        {
-            // Convert to Velodyne format
-            pcl::moveFromROSMsg(currentCloudMsg, *tmpOusterCloudIn);
-            laserCloudIn->points.resize(tmpOusterCloudIn->size());
-            laserCloudIn->is_dense = tmpOusterCloudIn->is_dense;
-            for (size_t i = 0; i < tmpOusterCloudIn->size(); i++)
+            if (stamp2Sec(odomQueue.front().header.stamp) < timeScanCur - 0.01)
             {
-                auto &src = tmpOusterCloudIn->points[i];
-                auto &dst = laserCloudIn->points[i];
-                dst.x = -src.x;
-                dst.y = -src.y;
-                dst.z = src.z;
-                dst.intensity = src.intensity;
-                dst.ring = src.ring;
-                dst.time = src.time * 1e-9f;
+                std::lock_guard<std::mutex> lock2(odoLock);
+                odomQueue.pop_front();
             }
+            else
+                break;
         }
-        else
+
+        if (odomQueue.empty())
+            return;
+
+        if (stamp2Sec(odomQueue.front().header.stamp) > timeScanCur)
+            return;
+
+        // get odometry at the beinning of the scan
+        nav_msgs::msg::Odometry startOdomMsg;
         {
-            RCLCPP_ERROR_STREAM(get_logger(), "Unknown sensor type: " << int(sensor));
-            rclcpp::shutdown();
+            std::lock_guard<std::mutex> lock2(odoLock);
+            startOdomMsg = std::move(odomQueue.front());
         }
 
-        // get timestamp
-        cloudHeader = currentCloudMsg.header;
-        timeScanCur = stamp2Sec(cloudHeader.stamp);
-        timeScanEnd = timeScanCur + laserCloudIn->points.back().time;
-    
-        // remove Nan
-        vector<int> indices;
-        pcl::removeNaNFromPointCloud(*laserCloudIn, *laserCloudIn, indices);
+        // for (int i = 0; i < (int)odomQueue.size(); ++i)
+        // {
+        //     std::lock_guard<std::mutex> lock2(odoLock);
+        //     startOdomMsg = odomQueue[i];
 
-        // check dense flag
-        if (laserCloudIn->is_dense == false)
+        //     if (stamp2Sec(startOdomMsg.header.stamp) < timeScanCur)
+        //         continue;
+        //     else
+        //         break;
+        // }
+
+        // Extract rotation and translation from the odometry message
+        if (startOdomMsg.pose.pose.orientation.x == 0.0 && startOdomMsg.pose.pose.orientation.y == 0.0 &&
+            startOdomMsg.pose.pose.orientation.z == 0.0 && startOdomMsg.pose.pose.orientation.w == 0.0)
         {
-            RCLCPP_ERROR(get_logger(), "Point cloud is not in dense format, please remove NaN points first!");
-            rclcpp::shutdown();
+            std::cerr << "Invalid orientation in odometry message" << std::endl;
+            return;
         }
 
-        // check ring channel
-        // we will skip the ring check in case of velodyne - as we calculate the ring value downstream (line 572)
-        if (ringFlag == 0)
+        tf2::Quaternion orientation;
+        tf2::fromMsg(startOdomMsg.pose.pose.orientation, orientation);
+        // std::cout << "Orientation: " << orientation.x() << ", " << orientation.y() << ", " << orientation.z() << ", " << orientation.w() << std::endl;
+
+
+        tf2::Matrix3x3 mat(orientation);
+        tf2::Vector3 translation(startOdomMsg.pose.pose.position.x,
+                                 startOdomMsg.pose.pose.position.y,
+                                 startOdomMsg.pose.pose.position.z);
+        // std::cout << "Translation: " << translation.x() << ", " << translation.y() << ", " << translation.z() << std::endl;
+
+        // Copy points to fullCloud
+        try
         {
-            ringFlag = -1;
-            for (int i = 0; i < (int)currentCloudMsg.fields.size(); ++i)
+            for (int i = 0; i < tmpCloud->points.size(); i++)
             {
-                if (currentCloudMsg.fields[i].name == "ring")
-                {
-                    ringFlag = 1;
-                    break;
-                }
-            }
-            if (ringFlag == -1)
-            {
-                if (sensor == SensorType::VELODYNE) {
-                    ringFlag = 2;
-                } else {
-                    RCLCPP_ERROR(get_logger(), "Point cloud ring channel not available, please configure your point cloud data!");
-                    rclcpp::shutdown();
-                }
+                pcl::PointXYZI tmpPoint;
+                tmpPoint.x = tmpCloud->points[i].x;
+                tmpPoint.y = tmpCloud->points[i].y;
+                tmpPoint.z = tmpCloud->points[i].z;
+                tmpPoint.intensity = tmpCloud->points[i].intensity;
+
+                // Print out the point before transformation
+                // std::cout << "Original Point: " << tmpPoint.x << ", " << tmpPoint.y << ", " << tmpPoint.z << std::endl;
+
+                // Apply rotation and translation
+                tf2::Vector3 point(tmpPoint.x, tmpPoint.y, tmpPoint.z);
+                tf2::Vector3 transformedPoint = mat * point + translation;
+
+                tmpPoint.x = transformedPoint.x();
+                tmpPoint.y = transformedPoint.y();
+                tmpPoint.z = transformedPoint.z();
+                // Print out the point after transformation
+                // std::cout << "Transformed Point: " << tmpPoint.x << ", " << tmpPoint.y << ", " << tmpPoint.z << std::endl;
+
+                fullCloud->points.push_back(tmpPoint);
             }
         }
-
-        // check point time
-        if (deskewFlag == 0)
+        catch (const std::exception &e)
         {
-            deskewFlag = -1;
-            for (auto &field : currentCloudMsg.fields)
-            {
-                if (field.name == "time" || field.name == "t")
-                {
-                    deskewFlag = 1;
-                    break;
-                }
-            }
-            if (deskewFlag == -1)
-                RCLCPP_WARN(get_logger(), "Point cloud timestamp not available, deskew function disabled, system will drift significantly!");
+            std::cerr << "Exception caught during point transformation: " << e.what() << std::endl;
+            return;
         }
 
-        return true;
-    }
+        // Voxelise the cloud
+        voxelFilter.setInputCloud(fullCloud);
+        voxelFilter.filter(*voxelCloud);
 
-    
-    void findPosition(double relTime, float *posXCur, float *posYCur, float *posZCur)
-    {
-        *posXCur = 0; *posYCur = 0; *posZCur = 0;
+        // Set voxelCloud as the new fullCloud for the next cycle
+        *fullCloud = *voxelCloud;
 
-        // If the sensor moves relatively slow, like walking speed, positional deskew seems to have little benefits. Thus code below is commented.
+        publishCloud(pubFullCloud, fullCloud, currentCloudMsg.header.stamp, mapFrame);
 
-        // if (cloudInfo.odom_Available == false || odomDeskewFlag == false)
-        //     return;
-
-        // float ratio = relTime / (timeScanEnd - timeScanCur);
-
-        // *posXCur = ratio * odomIncreX;
-        // *posYCur = ratio * odomIncreY;
-        // *posZCur = ratio * odomIncreZ;
-    }
-
-
-    void projectPointCloud()
-    {
-        int cloudSize = laserCloudIn->points.size();
-        // range image projection
-        for (int i = 0; i < cloudSize; ++i)
-        {
-            PointType thisPoint;
-            thisPoint.x = laserCloudIn->points[i].x;
-            thisPoint.y = laserCloudIn->points[i].y;
-            thisPoint.z = laserCloudIn->points[i].z;
-            thisPoint.intensity = laserCloudIn->points[i].intensity;
-
-            float range = pointDistance(thisPoint);
-            if (range < lidarMinRange || range > lidarMaxRange)
-                continue;
-
-            int rowIdn = laserCloudIn->points[i].ring;
-
-            // if sensor is a velodyne (ringFlag = 2) calculate rowIdn based on number of scans
-            if (ringFlag == 2) { 
-                float verticalAngle =
-                    atan2(thisPoint.z,
-                        sqrt(thisPoint.x * thisPoint.x + thisPoint.y * thisPoint.y)) *
-                    180 / M_PI;
-                rowIdn = (verticalAngle + (N_SCAN - 1)) / 2.0;
-            }
-
-            if (rowIdn < 0 || rowIdn >= N_SCAN)
-                continue;
-
-            if (rowIdn % downsampleRate != 0) 
-                continue;
-
-            int columnIdn = -1;
-            if (sensor == SensorType::VELODYNE || sensor == SensorType::OUSTER)
-            {
-                float horizonAngle = atan2(thisPoint.x, thisPoint.y) * 180 / M_PI;
-                static float ang_res_x = 360.0/float(Horizon_SCAN);
-                columnIdn = -round((horizonAngle-90.0)/ang_res_x) + Horizon_SCAN/2;
-                if (columnIdn >= Horizon_SCAN)
-                    columnIdn -= Horizon_SCAN;
-            }
-            else if (sensor == SensorType::LIVOX)
-            {
-                columnIdn = columnIdnCountVec[rowIdn];
-                columnIdnCountVec[rowIdn] += 1;
-            }
-
-            if (columnIdn < 0 || columnIdn >= Horizon_SCAN)
-                continue;
-
-            if (rangeMat.at<float>(rowIdn, columnIdn) != FLT_MAX)
-                continue;
-
-            thisPoint = deskewPoint(&thisPoint, laserCloudIn->points[i].time);
-
-            rangeMat.at<float>(rowIdn, columnIdn) = range;
-
-            int index = columnIdn + rowIdn * Horizon_SCAN;
-            fullCloud->points[index] = thisPoint;
-        }
-    }
-
-    void cloudExtraction()
-    {
-        int count = 0;
-        // extract segmented cloud for lidar odometry
-        for (int i = 0; i < N_SCAN; ++i)
-        {
-            cloudInfo.start_ring_index[i] = count - 1 + 5;
-            for (int j = 0; j < Horizon_SCAN; ++j)
-            {
-                if (rangeMat.at<float>(i,j) != FLT_MAX)
-                {
-                    // mark the points' column index for marking occlusion later
-                    cloudInfo.point_col_ind[count] = j;
-                    // save range info
-                    cloudInfo.point_range[count] = rangeMat.at<float>(i,j);
-                    // save extracted cloud
-                    extractedCloud->push_back(fullCloud->points[j + i*Horizon_SCAN]);
-                    // size of extracted cloud
-                    ++count;
-                }
-            }
-            cloudInfo.end_ring_index[i] = count -1 - 5;
-        }
-    }
-    
-    void publishClouds()
-    {
-        cloudInfo.header = cloudHeader;
-        cloudInfo.cloud_deskewed  = publishCloud(pubExtractedCloud, extractedCloud, cloudHeader.stamp, lidarFrame);
-        pubLaserCloudInfo->publish(cloudInfo);
     }
 };
 
-int main(int argc, char** argv)
+int main(int argc, char **argv)
 {
     rclcpp::init(argc, argv);
 
@@ -379,7 +209,7 @@ int main(int argc, char** argv)
     options.use_intra_process_comms(true);
     rclcpp::executors::MultiThreadedExecutor exec;
 
-    auto HRM = std::make_shared<ImageProjection>(options);
+    auto HRM = std::make_shared<HighResolutionMapping>(options);
     exec.add_node(HRM);
 
     RCLCPP_INFO(rclcpp::get_logger("rclcpp"), "\033[1;32m----> High Resolution Mapping Started.\033[0m");

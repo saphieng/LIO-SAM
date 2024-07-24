@@ -153,6 +153,7 @@ public:
     float globalMapVisualizationSearchRadius;
     float globalMapVisualizationPoseDensity;
     float globalMapVisualizationLeafSize;
+    float globalMapLeafSize;
 
     ParamServer(std::string node_name, const rclcpp::NodeOptions & options) : Node(node_name, options)
     {
@@ -315,6 +316,8 @@ public:
         get_parameter("globalMapVisualizationPoseDensity", globalMapVisualizationPoseDensity);
         declare_parameter("globalMapVisualizationLeafSize", 1.0);
         get_parameter("globalMapVisualizationLeafSize", globalMapVisualizationLeafSize);
+        declare_parameter("globalMapLeafSize", 1.0);
+        get_parameter("globalMapLeafSize", globalMapLeafSize);
 
         usleep(100);
     }
