@@ -4,7 +4,6 @@
     # Topics
     pointCloudTopic: "/ouster/points"           # Point cloud data
     imuTopic: "/Imu"                            # IMU data
-    # imuTopic: "/lio_sam/imu/imu_corrected"
     odomTopic: "odometry/imu"                   # IMU pre-preintegration odometry, same frequency as IMU
     gpsTopic: "/NavSatFix"                      # GPS odometry topic from navsat, see module_navsat.launch file
     #gpsOdomTopic: "/NavOdom"                    # GPS odometry topic from navsat, see module_navsat.launch file
