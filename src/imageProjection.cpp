@@ -90,6 +90,9 @@ private:
 
     vector<int> columnIdnCountVec;
 
+    pcl::PointXYZ exlusionBoxMin;
+    pcl::PointXYZ exlusionBoxMax;
+
 
 public:
     ImageProjection(const rclcpp::NodeOptions & options) :
@@ -126,6 +129,9 @@ public:
             "lio_sam/deskew/cloud_deskewed", 1);
         pubLaserCloudInfo = create_publisher<lio_sam::msg::CloudInfo>(
             "lio_sam/deskew/cloud_info", qos);
+
+        exlusionBoxMin = pcl::PointXYZ(exclusionBox(0, 0), exclusionBox(1, 0), exclusionBox(2, 0));
+        exlusionBoxMax = pcl::PointXYZ(exclusionBox(0, 1), exclusionBox(1, 1), exclusionBox(2, 1));
 
         allocateMemory();
         resetParameters();
@@ -574,6 +580,14 @@ public:
             float range = pointDistance(thisPoint);
             if (range < lidarMinRange || range > lidarMaxRange)
                 continue;
+
+            // std::cout << "** POINT: " << thisPoint.x << ", " << thisPoint.y << ", " << thisPoint.z << std::endl;
+
+            if (pointWithin(thisPoint, exlusionBoxMin, exlusionBoxMax))
+            {
+                // std::cout << " *** Point Within *** " << std::endl;
+                continue;
+            }
 
             int rowIdn = laserCloudIn->points[i].ring;
 

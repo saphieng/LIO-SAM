@@ -155,6 +155,10 @@ public:
     float globalMapVisualizationLeafSize;
     float globalMapLeafSize;
 
+    // Exclusion box in LiDAR frame
+    vector<double> exclusionBoxV;
+    Eigen::Matrix3Xd exclusionBox;
+
     ParamServer(std::string node_name, const rclcpp::NodeOptions & options) : Node(node_name, options)
     {
         declare_parameter("pointCloudTopic", "points");
@@ -319,6 +323,15 @@ public:
         declare_parameter("globalMapLeafSize", 1.0);
         get_parameter("globalMapLeafSize", globalMapLeafSize);
 
+
+        double temp[] = {   0.0,  0.0,
+                            0.0,  0.0,
+                            0.0,  0.0 };
+        std::vector < double > temp_vec(temp, std::end(temp));
+        declare_parameter("exclusionBox", temp_vec);
+        get_parameter("exclusionBox", exclusionBoxV);
+        exclusionBox = Eigen::Map<const Eigen::Matrix<double, -1, -1, Eigen::RowMajor>>(exclusionBoxV.data(), 3, 2);
+
         usleep(100);
     }
 
@@ -422,6 +435,18 @@ float pointDistance(PointType p1, PointType p2)
 {
     return sqrt((p1.x-p2.x)*(p1.x-p2.x) + (p1.y-p2.y)*(p1.y-p2.y) + (p1.z-p2.z)*(p1.z-p2.z));
 }
+
+bool pointWithin(PointType p, pcl::PointXYZ min, pcl::PointXYZ max)
+{
+
+    // std::cout << "Min: " << Min.x << ", " << Min.y << ", " << Min.z << std::endl;
+    // std::cout << "Max: " << Max.x << ", " << Max.y << ", " << Max.z << std::endl;
+
+    return min.x <= p.x && p.x <= max.x &&
+            min.y <= p.y && p.y <= max.y &&
+            min.z <= p.z && p.z <= max.z;
+}
+
 
 rmw_qos_profile_t qos_profile{
     RMW_QOS_POLICY_HISTORY_KEEP_LAST,
