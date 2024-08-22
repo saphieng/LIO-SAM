@@ -238,6 +238,7 @@ public:
         // convert cloud
         currentCloudMsg = std::move(cloudQueue.front());
         cloudQueue.pop_front();
+
         if (sensor == SensorType::VELODYNE || sensor == SensorType::LIVOX)
         {
             pcl::moveFromROSMsg(currentCloudMsg, *laserCloudIn);  
@@ -252,8 +253,8 @@ public:
             {
                 auto &src = tmpOusterCloudIn->points[i];
                 auto &dst = laserCloudIn->points[i];
-                dst.x = -src.x;
-                dst.y = -src.y;
+                dst.x = src.x;
+                dst.y = src.y;
                 dst.z = src.z;
                 dst.intensity = src.intensity;
                 dst.ring = src.ring;

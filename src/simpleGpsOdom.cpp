@@ -30,6 +30,7 @@ class GNSSOdom : public ParamServer
 
             // imuCorrectedPub = create_publisher<sensor_msgs::msg::Imu>("lio_sam/imu/imu_corrected", 100);
             gpsOdomPub = create_publisher<nav_msgs::msg::Odometry>("lio_sam/gps/odom", 100);
+            gpsOriginPub = create_publisher<sensor_msgs::msg::NavSatFix>("lio_sam/gps/origin", 100);
             fusedPathPub = create_publisher<nav_msgs::msg::Path>("lio_sam/gps/path", 100);
         }
 
@@ -76,12 +77,18 @@ class GNSSOdom : public ParamServer
 
             double gps_time = static_cast<double>(msg->header.stamp.sec) + msg->header.stamp.nanosec / 10e9;
             Eigen::Vector3d lla(msg->latitude, msg->longitude, msg->altitude);
+
             // std::cout << "LLA: " << lla.transpose() << std::endl;
             if (!initXyz)
             {
                 RCLCPP_INFO(this->get_logger(), "Init Orgin GPS LLA  %f, %f, %f", msg->latitude, msg->longitude,
                             msg->altitude);
                 gtools.lla_origin_ = lla;
+
+                originGps.latitude = lla(0);
+                originGps.longitude = lla(1);
+                originGps.altitude = lla(2);
+
                 initXyz = true;
                 return;
             }
@@ -193,6 +200,8 @@ class GNSSOdom : public ParamServer
             pose.pose.orientation.w = yawQuat.w;
             rospath.poses.push_back(pose);
             fusedPathPub->publish(rospath);
+
+            gpsOriginPub->publish(originGps);
         }
 
     void ResetOrigin(Eigen::Vector3d &_lla) { gtools.lla_origin_ = _lla; }
@@ -200,6 +209,8 @@ class GNSSOdom : public ParamServer
     GpsTools gtools;
 
     rclcpp::Publisher<nav_msgs::msg::Odometry>::SharedPtr gpsOdomPub;
+    rclcpp::Publisher<sensor_msgs::msg::NavSatFix>::SharedPtr gpsOriginPub;
+
     rclcpp::Publisher<nav_msgs::msg::Path>::SharedPtr fusedPathPub;
     rclcpp::Publisher<sensor_msgs::msg::Imu>::SharedPtr imuCorrectedPub;
     
@@ -208,6 +219,8 @@ class GNSSOdom : public ParamServer
 
     std::mutex mutexLock;
     std::deque<sensor_msgs::msg::NavSatFix::ConstSharedPtr> gpsBuf;
+
+    sensor_msgs::msg::NavSatFix originGps;
 
     bool orientationReady_ = false;
     bool initXyz = false;
