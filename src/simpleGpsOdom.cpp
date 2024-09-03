@@ -1,5 +1,6 @@
 // Edited from https://github.com/JokerJohn/LIO_SAM_6AXIS/blob/d026151c12588821de8b7dd240b3ca7012da007d/LIO-SAM-6AXIS/src/simpleGpsOdom.cpp
 // Mark Jin Edited 20230523
+// Clint Jeffree Edited 20240822
 
 #include <nav_msgs/msg/odometry.hpp>
 #include <nav_msgs/msg/path.hpp>
@@ -97,15 +98,16 @@ class GNSSOdom : public ParamServer
             //     this->get_logger(), *this->get_clock(), std::chrono::milliseconds(5000).count(),
             //     "Init Orgin GPS Latitude, Longitude, Altitude  %f, %f, %f", gtools.lla_origin_[0], gtools.lla_origin_[1], gtools.lla_origin_[2]);
 
-            //  convert  LLA to XYZ
+            // Convert LLA to ENU
             Eigen::Vector3d ecef = gtools.LLA2ECEF(lla);
             Eigen::Vector3d enu = gtools.ECEF2ENU(ecef);
-            // RCLCPP_INFO(this->get_logger(), "GPS ENU XYZ : %f, %f, %f", enu(0), enu(1), enu(2));
+            // RCLCPP_INFO(this->get_logger(), "GPS ENU: %f, %f, %f", enu(0), enu(1), enu(2));
 
-            // sometimes you may get a wrong origin at the beginning
+            // Sometimes you may get a wrong origin at the beginning if the GPS signal is bad...
             if (abs(enu.x()) > 10000 || abs(enu.x()) > 10000 || abs(enu.x()) > 10000)
             {
                 RCLCPP_INFO(this->get_logger(), "Error origin : %f, %f, %f", enu(0), enu(1), enu(2));
+
                 ResetOrigin(lla);
                 return;
             }
@@ -115,7 +117,7 @@ class GNSSOdom : public ParamServer
                 prevPos = enu;
             }
 
-            // maybe you need to get the extrinsics between your gnss and imu
+            // Additional extrincs between GNSS and IMU
             // most of the time, they are in the same frame
             Eigen::Matrix3d mat;
             mat <<  1, 0, 0,
@@ -128,7 +130,7 @@ class GNSSOdom : public ParamServer
 
             if (distance > 0.1)
             {
-                // 返回值是此点与远点连线与x轴正方向的夹角
+                // Calculate yaw using the position deltas
                 yaw = atan2(enu(1) - prevPos(1), enu(0) - prevPos(0));
 
                 if (yaw < 0.0) {
@@ -161,14 +163,14 @@ class GNSSOdom : public ParamServer
                 return;
             }
 
-            // make sure your initial yaw and origin postion are consistent
+            // Make sure your initial yaw and origin postion are consistent
             if (!firstYawInit || !orientationReady_)
             {
                 RCLCPP_ERROR(this->get_logger(), "Waiting init origin yaw");
                 return;
             }
 
-            // pub gps odometry
+            // Pub gps odometry
             nav_msgs::msg::Odometry odom_msg;
             odom_msg.header.stamp = msg->header.stamp;
             odom_msg.header.frame_id = odometryFrame;
@@ -186,7 +188,7 @@ class GNSSOdom : public ParamServer
             odom_msg.pose.pose.orientation = yawQuat;
             gpsOdomPub->publish(odom_msg);
 
-            // publish path
+            // Publish path
             rospath.header.frame_id = odometryFrame;
             rospath.header.stamp = msg->header.stamp;
             geometry_msgs::msg::PoseStamped pose;

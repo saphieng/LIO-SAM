@@ -21,33 +21,12 @@ class GpsTools {
  public:
   GpsTools() { lla_origin_.setIdentity(); };
 
-  // Eigen::Vector3d LLA2ECEF(const Eigen::Vector3d &lla);
-  //  Eigen::Vector3d ECEF2LLA(const Eigen::Vector3d &ecef);
-  //  Eigen::Vector3d ECEF2ENU(const Eigen::Vector3d &ecef);
-  //  Eigen::Vector3d ENU2ECEF(const Eigen::Vector3d &enu);
-  // static Eigen::Vector3d GpsMsg2Eigen(const sensor_msgs::NavSatFix
-  // &gps_msgs);
-  // void updateGPSpose(const sensor_msgs::NavSatFix &gps_msgs);
-
-  /**
-   * ros msg to eigen
-   * @param gps_msgs
-   * @return
-   */
   static Eigen::Vector3d GpsMsg2Eigen(const sensor_msgs::msg::NavSatFix &gps_msgs) {
     Eigen::Vector3d lla(gps_msgs.latitude, gps_msgs.longitude,
                         gps_msgs.altitude);
     return lla;
   }
 
-  /**
-   *  //2. LLA经度(longitude),纬度(latitude)和高度(altitude)经纬高坐标系
-   * 转(Earth-Centered, Earth-Fixed)
-   *  Z轴指向指向北，但不完全精确地与地球转动轴重合。转动轴有微小“摆动”，称之为“极运动(polar
-   * motion)” X轴在球面上与格林威治线和赤道的交点
-   * @param lla
-   * @return
-   */
   Eigen::Vector3d LLA2ECEF(const Eigen::Vector3d &lla) {
     Eigen::Vector3d ecef;
     double lat = deg2rad(lla.x());
@@ -110,10 +89,10 @@ class GpsTools {
   }
 
   void updateGPSpose(const sensor_msgs::msg::NavSatFix &gps_msgs) {
-    //检查状态4
+
     if (gps_msgs.status.status == 4 || gps_msgs.status.status == 5 ||
         gps_msgs.status.status == 1 || gps_msgs.status.status == 2) {
-      //第一个的时候设置为起点
+
       if (lla_origin_ == Eigen::Vector3d::Identity()) {
         Eigen::Vector3d lla = GpsMsg2Eigen(gps_msgs);
         lla_origin_ = lla;
@@ -130,10 +109,7 @@ class GpsTools {
     }
   }
 
-  //变量部分
-  // 1.lla的起点
   Eigen::Vector3d lla_origin_;
-  // 2.enu下的坐标
   Eigen::Vector3d gps_pos_;
 
  private:
