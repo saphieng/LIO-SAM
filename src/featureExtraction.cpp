@@ -1,6 +1,9 @@
 #include "utility.hpp"
 #include "lio_sam/msg/cloud_info.hpp"
 
+#include <pcl/features/normal_3d.h>
+#include <pcl/features/principal_curvatures.h>
+
 struct smoothness_t{ 
     float value;
     size_t ind;
@@ -76,6 +79,7 @@ public:
         pcl::fromROSMsg(msgIn->cloud_deskewed, *extractedCloud); // new cloud for extraction
 
         calculateSmoothness();
+        //calculateSmoothnessPCL();
 
         markOccludedPoints();
 
@@ -101,6 +105,36 @@ public:
             cloudNeighborPicked[i] = 0;
             cloudLabel[i] = 0;
             // cloudSmoothness for sorting
+            cloudSmoothness[i].value = cloudCurvature[i];
+            cloudSmoothness[i].ind = i;
+        }
+    }
+
+    void calculateSmoothnessPCL()
+    {
+
+        // Create a KdTreeFLANN and set it up
+        pcl::KdTreeFLANN<PointType>::Ptr kdtree(new pcl::KdTreeFLANN<PointType>());
+        kdtree->setInputCloud(extractedCloud); // Build the tree once with the filtered cloud
+
+        // Normal estimation
+        pcl::NormalEstimation<PointType, pcl::Normal> normalEstimator;
+        normalEstimator.setInputCloud(extractedCloud);
+        // pcl::search::KdTree<PointType>::Ptr tree(new pcl::search::KdTree<PointType>());
+        normalEstimator.setSearchMethod(std::dynamic_pointer_cast<pcl::search::Search<PointType>>(kdtree));
+        normalEstimator.setRadiusSearch(0.5); // Set an appropriate radius
+
+        pcl::PointCloud<pcl::Normal>::Ptr normals(new pcl::PointCloud<pcl::Normal>);
+        normalEstimator.compute(*normals);
+
+        for (size_t i = 0; i < normals->points.size(); ++i)
+        {
+            cloudCurvature[i] = normals->points[i].curvature;
+            // std::cout << "Curvature: " << cloudCurvature[i] << std::endl;
+
+            cloudNeighborPicked[i] = 0;
+            cloudLabel[i] = 0;
+
             cloudSmoothness[i].value = cloudCurvature[i];
             cloudSmoothness[i].ind = i;
         }

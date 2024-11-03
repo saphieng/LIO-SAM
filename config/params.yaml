@@ -2,15 +2,15 @@
   ros__parameters:
 
     # Topics
-    pointCloudTopic: "/ouster/points"           # Point cloud data
-    imuTopic: "/Imu"                            # IMU data
+    pointCloudTopic: "/points_raw"           # Point cloud data
+    imuTopic: "/imu"                            # IMU data
     odomTopic: "odometry/imu"                   # IMU pre-preintegration odometry, same frequency as IMU
-    gpsTopic: "/NavSatFix"                      # GPS odometry topic from navsat, see module_navsat.launch file
+    gpsTopic: "/gps/fix"                        # GPS odometry topic from navsat, see module_navsat.launch file
     #gpsOdomTopic: "/NavOdom"                    # GPS odometry topic from navsat, see module_navsat.launch file
-    gpsOdomTopic: "/lio_sam/gps/odom"
+    gpsOdomTopic: "/odometry/filtered" #"/lio_sam/gps/odom"
 
     # Frames
-    lidarFrame: "base_link"
+    lidarFrame: "os_sensor"
     baselinkFrame: "base_link"
     odometryFrame: "odom"
     mapFrame: "map"
@@ -20,7 +20,7 @@
     useGpsElevation: true                       # if GPS elevation is bad, set to "false"
     gpsCovThreshold: 2.0                         # m^2, threshold for using GPS data
     poseCovThreshold: 25.0                       # m^2, threshold for using GPS data
-    gpsPointThreshold: 0.0                       # m, distance between GPS points for adding factor
+    gpsPointThreshold: 1.0                       # m, distance between GPS points for adding factor
 
     # Export settings
     savePCD: true                               # https://github.com/TixiaoShan/LIO-SAM/issues/3
@@ -33,7 +33,7 @@
     downsampleRate: 1                            # default: 1. Downsample your data if too many
     # points. i.e., 16 = 64 / 4, 16 = 16 / 1
     lidarMinRange: 1.0                           # default: 1.0, minimum lidar range to be used
-    lidarMaxRange: 75.0                     # default: 1000.0, maximum lidar range to be used
+    lidarMaxRange: 50.0                     # default: 1000.0, maximum lidar range to be used
 
     # IMU Settings
     imuAccNoise: 0.01 # Spatial - 0.062, Certus - 0.003
@@ -66,7 +66,7 @@
     #                 0.0,  0.0,  1.0 ]
 
     # Certus
-    extrinsicTrans:  [ 0.0,  0.0,  -0.0899 ]
+    extrinsicTrans:  [ 0.0,  0.0,  -0.0899]
     extrinsicRot:    [1.0,  0.0,  0.0,
                       0.0,  1.0,  0.0,
                       0.0,  0.0,  1.0 ]
@@ -76,9 +76,9 @@
                     0.0,  0.0,  1.0 ]
 
     # LOAM feature threshold
-    edgeThreshold: 1.0
-    surfThreshold: 0.5
-    edgeFeatureMinValidNum: 5
+    edgeThreshold: 0.25  # 0.03 PCL curv
+    surfThreshold: 0.01  # 0.004 PCL curv
+    edgeFeatureMinValidNum: 10
     surfFeatureMinValidNum: 50
 
     # voxel filter paprams
@@ -92,12 +92,12 @@
 
     # CPU Params
     numberOfCores: 10                            # number of cores for mapping optimization
-    mappingProcessInterval: 0.25               # seconds, regulate mapping frequency
+    mappingProcessInterval: 0.1               # seconds, regulate mapping frequency
 
     # Surrounding map
     surroundingkeyframeAddingDistThreshold: 0.5   # meters, regulate keyframe adding threshold
     surroundingkeyframeAddingAngleThreshold: 0.1  # radians, regulate keyframe adding threshold
-    surroundingKeyframeDensity: 2.0               # meters, downsample surrounding keyframe poses   
+    surroundingKeyframeDensity: 0.4               # meters, downsample surrounding keyframe poses   
     surroundingKeyframeSearchRadius: 25.0         # meters, within n meters scan-to-map optimization
     # (when loop closure disabled)
 

@@ -175,6 +175,8 @@ public:
             imuRotY[i] = 0;
             imuRotZ[i] = 0;
         }
+
+        columnIdnCountVec.assign(N_SCAN, 0);
     }
 
     ~ImageProjection(){}
@@ -578,6 +580,11 @@ public:
             thisPoint.z = laserCloudIn->points[i].z;
             thisPoint.intensity = laserCloudIn->points[i].intensity;
 
+            if (!std::isfinite(thisPoint.x) ||
+                !std::isfinite(thisPoint.y) ||
+                !std::isfinite(thisPoint.z))
+                continue;
+
             float range = pointDistance(thisPoint);
             if (range < lidarMinRange || range > lidarMaxRange)
                 continue;
@@ -643,7 +650,7 @@ public:
         // extract segmented cloud for lidar odometry
         for (int i = 0; i < N_SCAN; ++i)
         {
-            cloudInfo.start_ring_index[i] = count - 1 + 5;
+            cloudInfo.start_ring_index[i] = count + 5; //zzCJ removed additional -1 here
             for (int j = 0; j < Horizon_SCAN; ++j)
             {
                 if (rangeMat.at<float>(i,j) != FLT_MAX)
@@ -658,7 +665,7 @@ public:
                     ++count;
                 }
             }
-            cloudInfo.end_ring_index[i] = count -1 - 5;
+            cloudInfo.end_ring_index[i] = count - 5; //zzCJ removed additional -1 here
         }
     }
     

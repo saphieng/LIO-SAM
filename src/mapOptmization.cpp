@@ -1278,7 +1278,7 @@ public:
     {
         if (cloudKeyPoses3D->points.empty())
             return;
-
+        
         if (laserCloudCornerLastDSNum > edgeFeatureMinValidNum && laserCloudSurfLastDSNum > surfFeatureMinValidNum)
         {
             kdtreeCornerFromMap->setInputCloud(laserCloudCornerFromMapDS);

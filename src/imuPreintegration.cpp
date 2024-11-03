@@ -320,22 +320,27 @@ public:
                 else
                     break;
             }
+
             // initial pose
             prevPose_ = lidarPose.compose(lidar2Imu);
             gtsam::PriorFactor<gtsam::Pose3> priorPose(X(0), prevPose_, priorPoseNoise);
             graphFactors.add(priorPose);
+
             // initial velocity
             prevVel_ = gtsam::Vector3(0, 0, 0);
             gtsam::PriorFactor<gtsam::Vector3> priorVel(V(0), prevVel_, priorVelNoise);
             graphFactors.add(priorVel);
+
             // initial bias
             prevBias_ = gtsam::imuBias::ConstantBias();
             gtsam::PriorFactor<gtsam::imuBias::ConstantBias> priorBias(B(0), prevBias_, priorBiasNoise);
             graphFactors.add(priorBias);
+
             // add values
             graphValues.insert(X(0), prevPose_);
             graphValues.insert(V(0), prevVel_);
             graphValues.insert(B(0), prevBias_);
+
             // optimize once
             optimizer.update(graphFactors, graphValues);
             graphFactors.resize(0);
@@ -389,8 +394,8 @@ public:
             double imuTime = stamp2Sec(thisImu->header.stamp);
             if (imuTime < currentCorrectionTime - delta_t)
             {
-                // double dt = (lastImuT_opt < 0) ? (1.0 / 500.0) : (imuTime - lastImuT_opt);
-                double dt = (lastImuT_opt < 0 || (imuTime - lastImuT_opt) <= 0) ? (1.0 / 500.0) : (imuTime - lastImuT_opt);
+                // double dt = (lastImuT_opt < 0) ? (1.0 / 150.0) : (imuTime - lastImuT_opt);
+                double dt = (lastImuT_opt < 0 || (imuTime - lastImuT_opt) <= 0) ? (1.0 / 150.0) : (imuTime - lastImuT_opt);
                 imuIntegratorOpt_->integrateMeasurement(
                         gtsam::Vector3(thisImu->linear_acceleration.x, thisImu->linear_acceleration.y, thisImu->linear_acceleration.z),
                         gtsam::Vector3(thisImu->angular_velocity.x,    thisImu->angular_velocity.y,    thisImu->angular_velocity.z), dt);
@@ -405,31 +410,38 @@ public:
         const gtsam::PreintegratedImuMeasurements& preint_imu = dynamic_cast<const gtsam::PreintegratedImuMeasurements&>(*imuIntegratorOpt_);
         gtsam::ImuFactor imu_factor(X(key - 1), V(key - 1), X(key), V(key), B(key - 1), preint_imu);
         graphFactors.add(imu_factor);
+
         // add imu bias between factor
         graphFactors.add(gtsam::BetweenFactor<gtsam::imuBias::ConstantBias>(B(key - 1), B(key), gtsam::imuBias::ConstantBias(),
                          gtsam::noiseModel::Diagonal::Sigmas(sqrt(imuIntegratorOpt_->deltaTij()) * noiseModelBetweenBias)));
+
         // add pose factor
         gtsam::Pose3 curPose = lidarPose.compose(lidar2Imu);
         gtsam::PriorFactor<gtsam::Pose3> pose_factor(X(key), curPose, degenerate ? correctionNoise2 : correctionNoise);
         graphFactors.add(pose_factor);
+
         // insert predicted values
         gtsam::NavState propState_ = imuIntegratorOpt_->predict(prevState_, prevBias_);
         graphValues.insert(X(key), propState_.pose());
         graphValues.insert(V(key), propState_.v());
         graphValues.insert(B(key), prevBias_);
+
         // optimize
         optimizer.update(graphFactors, graphValues);
         optimizer.update();
         graphFactors.resize(0);
         graphValues.clear();
+
         // Overwrite the beginning of the preintegration for the next step.
         gtsam::Values result = optimizer.calculateEstimate();
         prevPose_  = result.at<gtsam::Pose3>(X(key));
         prevVel_   = result.at<gtsam::Vector3>(V(key));
         prevState_ = gtsam::NavState(prevPose_, prevVel_);
         prevBias_  = result.at<gtsam::imuBias::ConstantBias>(B(key));
+
         // Reset the optimization preintegration object.
         imuIntegratorOpt_->resetIntegrationAndSetBias(prevBias_);
+
         // check optimization
         if (failureDetection(prevVel_, prevBias_))
         {
@@ -437,10 +449,10 @@ public:
             return;
         }
 
-
         // 2. after optiization, re-propagate imu odometry preintegration
         prevStateOdom = prevState_;
         prevBiasOdom  = prevBias_;
+
         // first pop imu message older than current correction data
         double lastImuQT = -1;
         while (!imuQueImu.empty() && stamp2Sec(imuQueImu.front().header.stamp) < currentCorrectionTime - delta_t)
@@ -448,6 +460,7 @@ public:
             lastImuQT = stamp2Sec(imuQueImu.front().header.stamp);
             imuQueImu.pop_front();
         }
+        
         // repropogate
         if (!imuQueImu.empty())
         {
@@ -458,8 +471,8 @@ public:
             {
                 sensor_msgs::msg::Imu *thisImu = &imuQueImu[i];
                 double imuTime = stamp2Sec(thisImu->header.stamp);
-                // double dt = (lastImuQT < 0) ? (1.0 / 500.0) :(imuTime - lastImuQT);
-                double dt = (lastImuT_opt < 0 || (imuTime - lastImuT_opt) <= 0) ? (1.0 / 500.0) : (imuTime - lastImuT_opt);
+                // double dt = (lastImuQT < 0) ? (1.0 / 150.0) :(imuTime - lastImuQT);
+                double dt = (lastImuT_opt < 0 || (imuTime - lastImuT_opt) <= 0) ? (1.0 / 150.0) : (imuTime - lastImuT_opt);
 
                 imuIntegratorImu_->integrateMeasurement(gtsam::Vector3(thisImu->linear_acceleration.x, thisImu->linear_acceleration.y, thisImu->linear_acceleration.z),
                                                         gtsam::Vector3(thisImu->angular_velocity.x,    thisImu->angular_velocity.y,    thisImu->angular_velocity.z), dt);
@@ -505,8 +518,8 @@ public:
             return;
 
         double imuTime = stamp2Sec(thisImu.header.stamp);
-        // double dt = (lastImuT_imu < 0) ? (1.0 / 500.0) : (imuTime - lastImuT_imu);
-        double dt = (lastImuT_opt < 0 || (imuTime - lastImuT_opt) <= 0) ? (1.0 / 500.0) : (imuTime - lastImuT_opt);
+        // double dt = (lastImuT_imu < 0) ? (1.0 / 150.0) : (imuTime - lastImuT_imu);
+        double dt = (lastImuT_opt < 0 || (imuTime - lastImuT_opt) <= 0) ? (1.0 / 150.0) : (imuTime - lastImuT_opt);
         lastImuT_imu = imuTime;
 
         // integrate this single imu message
