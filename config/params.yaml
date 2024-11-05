@@ -10,7 +10,7 @@
     gpsOdomTopic: "/odometry/filtered" #"/lio_sam/gps/odom"
 
     # Frames
-    lidarFrame: "os_sensor"
+    lidarFrame: "base_link"
     baselinkFrame: "base_link"
     odometryFrame: "odom"
     mapFrame: "map"
@@ -97,7 +97,7 @@
     # Surrounding map
     surroundingkeyframeAddingDistThreshold: 0.5   # meters, regulate keyframe adding threshold
     surroundingkeyframeAddingAngleThreshold: 0.1  # radians, regulate keyframe adding threshold
-    surroundingKeyframeDensity: 0.4               # meters, downsample surrounding keyframe poses   
+    surroundingKeyframeDensity: 0.2               # meters, downsample surrounding keyframe poses   
     surroundingKeyframeSearchRadius: 25.0         # meters, within n meters scan-to-map optimization
     # (when loop closure disabled)
 
