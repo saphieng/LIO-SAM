@@ -28,7 +28,7 @@ def generate_launch_description():
             executable='static_transform_publisher',
             arguments='0.0 0.0 0.0 0.0 0.0 0.0 map odom'.split(' '),
             parameters=[parameter_file],
-            output='screen'
+            #output='screen'
         ),
         # Node(
         #     package='robot_state_publisher',
@@ -61,7 +61,7 @@ def generate_launch_description():
             name='lio_sam_imageProjection',
             parameters=[parameter_file],
             arguments=['--ros-args', '--log-level', 'info'],
-            output='screen'
+            #output='screen'
         ),
         Node(
             package='lio_sam',
@@ -69,7 +69,7 @@ def generate_launch_description():
             name='lio_sam_featureExtraction',
             parameters=[parameter_file],
             arguments=['--ros-args', '--log-level', 'info'],
-            output='screen'
+            #output='screen'
         ),
         Node(
             package='lio_sam',
@@ -77,7 +77,7 @@ def generate_launch_description():
             name='lio_sam_mapOptimization',
             parameters=[parameter_file],
             arguments=['--ros-args', '--log-level', 'info'],
-            output='screen'
+            #output='screen'
         ),
         # Node(
         #     package='lio_sam',
@@ -87,11 +87,11 @@ def generate_launch_description():
         #     arguments=['--ros-args', '--log-level', 'info'],
         #     output='screen'
         # ),
-        Node(
-            package='rviz2',
-            executable='rviz2',
-            name='rviz2',
-            arguments=['-d', rviz_config_file],
-            output='screen'
-        )
+        # Node(
+        #     package='rviz2',
+        #     executable='rviz2',
+        #     name='rviz2',
+        #     arguments=['-d', rviz_config_file],
+        #     output='screen'
+        # )
     ])
