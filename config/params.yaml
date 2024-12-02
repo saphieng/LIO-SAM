@@ -2,9 +2,9 @@
   ros__parameters:
 
     # Topics
-    pointCloudTopic: "/points_raw"           # Point cloud data
+    pointCloudTopic: "/ouster/points"           # Point cloud data
     imuTopic: "/imu"                            # IMU data
-    odomTopic: "odometry/imu"                   # IMU pre-preintegration odometry, same frequency as IMU
+    odomTopic: "/odometry/imu"                   # IMU pre-preintegration odometry, same frequency as IMU
     gpsTopic: "/gps/fix"                        # GPS odometry topic from navsat, see module_navsat.launch file
     #gpsOdomTopic: "/NavOdom"                    # GPS odometry topic from navsat, see module_navsat.launch file
     gpsOdomTopic: "/odometry/filtered" #"/lio_sam/gps/odom"
@@ -43,27 +43,6 @@
 
     imuGravity: 9.80511
     imuRPYWeight: 0.01
-
-    # spatial
-    # extrinsicTrans:  [ -0.023,  0.13,  -0.07 ]
-    
-    # extrinsicRot:    [-1.0,  0.0,  0.0,
-    #                    0.0,  1.0,  0.0,
-    #                    0.0,  0.0, -1.0 ]
-    
-    # extrinsicRPY: [ 1.0,  0.0,  0.0,
-    #                  0.0,  1.0,  0.0,
-    #                  0.0,  0.0,  1.0 ]
-
-    # Certus Evo
-    # extrinsicTrans:  [ 0.0,  0.0,  -0.0946 ]
-    # extrinsicRot:    [1.0,  0.0,  0.0,
-    #                   0.0,  1.0,  0.0,
-    #                   0.0,  0.0,  1.0 ]
-    
-    # extrinsicRPY: [ 1.0,  0.0,  0.0,
-    #                 0.0,  1.0,  0.0,
-    #                 0.0,  0.0,  1.0 ]
 
     # Certus
     extrinsicTrans:  [ 0.0,  0.0,  -0.0899]
