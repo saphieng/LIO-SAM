@@ -117,20 +117,20 @@ def generate_launch_description():
                             arguments=['--ros-args', '--log-level', 'info'],
                             output='screen'
                         ),
-                        Node(
-                            package='rviz2',
-                            executable='rviz2',
-                            name='rviz2',
-                            arguments=['-d', rviz_config_file],
-                            output='screen'
-                        )
+                        # Node(
+                        #     package='rviz2',
+                        #     executable='rviz2',
+                        #     name='rviz2',
+                        #     arguments=['-d', rviz_config_file],
+                        #     output='screen'
+                        # )
                         ],
         ),
-        TimerAction(
-                period=12.0,
-                actions=[LogInfo(msg='Starting Octomap Server...'),
-                        IncludeLaunchDescription(PythonLaunchDescriptionSource([octo_launch_file])),
-                        ],
-        ),
+        # TimerAction(
+        #         period=12.0,
+        #         actions=[LogInfo(msg='Starting Octomap Server...'),
+        #                 IncludeLaunchDescription(PythonLaunchDescriptionSource([octo_launch_file])),
+        #                 ],
+        # ),
 
     ])

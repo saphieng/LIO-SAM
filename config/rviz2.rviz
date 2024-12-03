@@ -6,14 +6,20 @@ Panels:
       Expanded:
         - /Global Options1
         - /Status1
-        - /TF1
         - /TF1/Frames1
         - /Registered Cloud Raw1/Topic1
-        - /MarkerArray2/Topic1
-        - /MarkerArray2/Namespaces1
-        - /PointCloud21
-        - /Cloud Deskewed1
-      Splitter Ratio: 0.7778925895690918
+        - /OctoMap Voxels1/Topic1
+        - /OctoMap Voxels1/Namespaces1
+        - /Delta Marker1/Status1
+        - /Delta Marker1/Topic1
+        - /Delta Marker1/Namespaces1
+        - /Initial Marker1/Status1
+        - /Initial Marker1/Topic1
+        - /Initial Marker1/Namespaces1
+        - /Final Marker1/Status1
+        - /Final Marker1/Topic1
+        - /Final Marker1/Namespaces1
+      Splitter Ratio: 0.49793389439582825
     Tree Height: 1628
   - Class: rviz_common/Selection
     Name: Selection
@@ -67,10 +73,6 @@ Visualization Manager:
           Value: true
         odom:
           Value: false
-        os_imu:
-          Value: false
-        os_lidar:
-          Value: false
         os_sensor:
           Value: false
       Marker Scale: 5
@@ -88,10 +90,7 @@ Visualization Manager:
                 imu:
                   {}
                 os_sensor:
-                  os_imu:
-                    {}
-                  os_lidar:
-                    {}
+                  {}
       Update Interval: 0
       Value: true
     - Alpha: 1
@@ -202,12 +201,12 @@ Visualization Manager:
       Color: 255; 255; 255
       Color Transformer: Intensity
       Decay Time: 0
-      Enabled: true
+      Enabled: false
       Invert Rainbow: false
       Max Color: 255; 255; 255
-      Max Intensity: 2257
+      Max Intensity: 2275
       Min Color: 0; 0; 0
-      Min Intensity: 2
+      Min Intensity: 4
       Name: Registered Cloud Raw
       Position Transformer: XYZ
       Selectable: true
@@ -223,7 +222,7 @@ Visualization Manager:
         Value: /lio_sam/mapping/cloud_registered_raw
       Use Fixed Frame: true
       Use rainbow: true
-      Value: true
+      Value: false
     - Alpha: 1
       Autocompute Intensity Bounds: true
       Autocompute Value Bounds:
@@ -293,8 +292,8 @@ Visualization Manager:
       Use rainbow: true
       Value: false
     - Class: rviz_default_plugins/MarkerArray
-      Enabled: true
-      Name: MarkerArray
+      Enabled: false
+      Name: OctoMap Voxels
       Namespaces:
         {}
       Topic:
@@ -303,7 +302,7 @@ Visualization Manager:
         History Policy: Keep Last
         Reliability Policy: Reliable
         Value: /occupied_cells_vis_array
-      Value: true
+      Value: false
     - Alpha: 1
       Autocompute Intensity Bounds: true
       Autocompute Value Bounds:
@@ -322,7 +321,7 @@ Visualization Manager:
       Max Intensity: 4096
       Min Color: 0; 0; 0
       Min Intensity: 0
-      Name: PointCloud2
+      Name: OctoMap Centroids
       Position Transformer: XYZ
       Selectable: true
       Size (Pixels): 3
@@ -350,12 +349,12 @@ Visualization Manager:
       Color: 255; 255; 255
       Color Transformer: Intensity
       Decay Time: 0
-      Enabled: false
+      Enabled: true
       Invert Rainbow: false
       Max Color: 255; 255; 255
-      Max Intensity: 2326
+      Max Intensity: 3279
       Min Color: 0; 0; 0
-      Min Intensity: 4
+      Min Intensity: 3
       Name: Cloud Deskewed
       Position Transformer: XYZ
       Selectable: true
@@ -371,7 +370,7 @@ Visualization Manager:
         Value: /lio_sam/deskew/cloud_deskewed
       Use Fixed Frame: true
       Use rainbow: true
-      Value: false
+      Value: true
     - Alpha: 1
       Autocompute Intensity Bounds: true
       Autocompute Value Bounds:
@@ -440,10 +439,49 @@ Visualization Manager:
       Use Fixed Frame: true
       Use rainbow: true
       Value: false
+    - Class: rviz_default_plugins/Marker
+      Enabled: true
+      Name: Delta Marker
+      Namespaces:
+        delta: false
+      Topic:
+        Depth: 5
+        Durability Policy: Volatile
+        Filter size: 10
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+        Value: /analysis/delta_marker
+      Value: true
+    - Class: rviz_default_plugins/Marker
+      Enabled: true
+      Name: Initial Marker
+      Namespaces:
+        initial: true
+      Topic:
+        Depth: 5
+        Durability Policy: Volatile
+        Filter size: 10
+        History Policy: Keep Last
+        Reliability Policy: Best Effort
+        Value: /analysis/initial_marker
+      Value: true
+    - Class: rviz_default_plugins/Marker
+      Enabled: true
+      Name: Final Marker
+      Namespaces:
+        final: true
+      Topic:
+        Depth: 5
+        Durability Policy: Volatile
+        Filter size: 10
+        History Policy: Keep Last
+        Reliability Policy: Best Effort
+        Value: /analysis/final_marker
+      Value: true
   Enabled: true
   Global Options:
     Background Color: 48; 48; 48
-    Fixed Frame: map
+    Fixed Frame: odom
     Frame Rate: 30
   Name: root
   Tools:
@@ -486,25 +524,25 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz_default_plugins/Orbit
-      Distance: 30.71784019470215
+      Distance: 29.930673599243164
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
         Swap Stereo Eyes: false
         Value: false
       Focal Point:
-        X: -3.0909171104431152
-        Y: 5.643461227416992
-        Z: 5.585660934448242
+        X: -1.1671069860458374
+        Y: -0.19466736912727356
+        Z: 4.300902366638184
       Focal Shape Fixed Size: false
       Focal Shape Size: 0.05000000074505806
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 0.265397310256958
+      Pitch: 0.23039691150188446
       Target Frame: <Fixed Frame>
       Value: Orbit (rviz_default_plugins)
-      Yaw: 2.3190388679504395
+      Yaw: 5.340864181518555
     Saved:
       - Class: rviz_default_plugins/ThirdPersonFollower
         Distance: 20
