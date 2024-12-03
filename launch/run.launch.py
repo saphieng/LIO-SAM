@@ -28,6 +28,15 @@ def generate_launch_description():
             ],
             shell=True
         )
+    
+    set_pose = ExecuteProcess(
+            cmd=[
+                FindExecutable(name='ros2'),
+                "service", "call", "/set_pose", "robot_localization/srv/SetPose",
+                '"{geo_pose: {position: {latitude: 41.024252, longitude: -105.5685, altitude: 2468.53}, orientation: {x: 0.0, y: 0.0, z: 0.0, w: 1.0}}}"'
+            ],
+            shell=True
+        )
 
     octo_launch_file = os.path.join(
         get_package_share_directory('octomap_server2'),
@@ -57,21 +66,21 @@ def generate_launch_description():
         ),
         Node(
             package='robot_localization',
-            executable='navsat_transform_node',
-            name='navsat_transform_node',
-            parameters=[os.path.join(get_package_share_directory("localisation"), 'config', 'loc_params.yaml')],
-            output='screen',
-        ),
-        Node(
-            package='robot_localization',
             executable='ekf_node',
             name='ekf_filter_node',
             parameters=[os.path.join(get_package_share_directory("localisation"), 'config', 'loc_params.yaml')],
             output='screen'
         ),
+        Node(
+            package='robot_localization',
+            executable='navsat_transform_node',
+            name='navsat_transform_node',
+            parameters=[os.path.join(get_package_share_directory("localisation"), 'config', 'loc_params.yaml')],
+            output='screen',
+        ),
         TimerAction(
             period=5.0,  # Delay in seconds
-            actions=[LogInfo(msg='Setting datum...'), 
+            actions=[LogInfo(msg='Setting datum and pose...'), 
                      set_datum]
         ),
         TimerAction(
@@ -117,13 +126,13 @@ def generate_launch_description():
                             arguments=['--ros-args', '--log-level', 'info'],
                             output='screen'
                         ),
-                        # Node(
-                        #     package='rviz2',
-                        #     executable='rviz2',
-                        #     name='rviz2',
-                        #     arguments=['-d', rviz_config_file],
-                        #     output='screen'
-                        # )
+                        Node(
+                            package='rviz2',
+                            executable='rviz2',
+                            name='rviz2',
+                            arguments=['-d', rviz_config_file],
+                            output='screen'
+                        )
                         ],
         ),
         # TimerAction(

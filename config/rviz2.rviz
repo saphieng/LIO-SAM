@@ -10,15 +10,13 @@ Panels:
         - /Registered Cloud Raw1/Topic1
         - /OctoMap Voxels1/Topic1
         - /OctoMap Voxels1/Namespaces1
-        - /Delta Marker1/Status1
         - /Delta Marker1/Topic1
         - /Delta Marker1/Namespaces1
-        - /Initial Marker1/Status1
         - /Initial Marker1/Topic1
         - /Initial Marker1/Namespaces1
-        - /Final Marker1/Status1
         - /Final Marker1/Topic1
         - /Final Marker1/Namespaces1
+        - /GPS Odometry1/Shape1
       Splitter Ratio: 0.49793389439582825
     Tree Height: 1628
   - Class: rviz_common/Selection
@@ -73,6 +71,10 @@ Visualization Manager:
           Value: true
         odom:
           Value: false
+        os_imu:
+          Value: true
+        os_lidar:
+          Value: true
         os_sensor:
           Value: false
       Marker Scale: 5
@@ -82,14 +84,18 @@ Visualization Manager:
       Show Names: true
       Tree:
         map:
-          odom:
-            base_link:
-              chassis_link:
-                gps:
+          {}
+        odom:
+          base_link:
+            chassis_link:
+              gps:
+                {}
+              imu:
+                {}
+              os_sensor:
+                os_imu:
                   {}
-                imu:
-                  {}
-                os_sensor:
+                os_lidar:
                   {}
       Update Interval: 0
       Value: true
@@ -201,10 +207,10 @@ Visualization Manager:
       Color: 255; 255; 255
       Color Transformer: Intensity
       Decay Time: 0
-      Enabled: false
+      Enabled: true
       Invert Rainbow: false
       Max Color: 255; 255; 255
-      Max Intensity: 2275
+      Max Intensity: 2283
       Min Color: 0; 0; 0
       Min Intensity: 4
       Name: Registered Cloud Raw
@@ -222,7 +228,7 @@ Visualization Manager:
         Value: /lio_sam/mapping/cloud_registered_raw
       Use Fixed Frame: true
       Use rainbow: true
-      Value: false
+      Value: true
     - Alpha: 1
       Autocompute Intensity Bounds: true
       Autocompute Value Bounds:
@@ -235,10 +241,10 @@ Visualization Manager:
       Color: 255; 255; 255
       Color Transformer: Intensity
       Decay Time: 0
-      Enabled: false
+      Enabled: true
       Invert Rainbow: false
       Max Color: 255; 255; 255
-      Max Intensity: 2181
+      Max Intensity: 1626
       Min Color: 0; 0; 0
       Min Intensity: 4
       Name: Map Cloud
@@ -256,7 +262,7 @@ Visualization Manager:
         Value: /lio_sam/mapping/map_global
       Use Fixed Frame: true
       Use rainbow: true
-      Value: false
+      Value: true
     - Alpha: 1
       Autocompute Intensity Bounds: true
       Autocompute Value Bounds:
@@ -272,9 +278,9 @@ Visualization Manager:
       Enabled: false
       Invert Rainbow: false
       Max Color: 255; 255; 255
-      Max Intensity: 490
+      Max Intensity: 1509
       Min Color: 0; 0; 0
-      Min Intensity: 4
+      Min Intensity: 5
       Name: Registered Cloud
       Position Transformer: XYZ
       Selectable: true
@@ -349,10 +355,10 @@ Visualization Manager:
       Color: 255; 255; 255
       Color Transformer: Intensity
       Decay Time: 0
-      Enabled: true
+      Enabled: false
       Invert Rainbow: false
       Max Color: 255; 255; 255
-      Max Intensity: 3279
+      Max Intensity: 2162
       Min Color: 0; 0; 0
       Min Intensity: 3
       Name: Cloud Deskewed
@@ -370,7 +376,7 @@ Visualization Manager:
         Value: /lio_sam/deskew/cloud_deskewed
       Use Fixed Frame: true
       Use rainbow: true
-      Value: true
+      Value: false
     - Alpha: 1
       Autocompute Intensity Bounds: true
       Autocompute Value Bounds:
@@ -443,7 +449,7 @@ Visualization Manager:
       Enabled: true
       Name: Delta Marker
       Namespaces:
-        delta: false
+        {}
       Topic:
         Depth: 5
         Durability Policy: Volatile
@@ -456,7 +462,7 @@ Visualization Manager:
       Enabled: true
       Name: Initial Marker
       Namespaces:
-        initial: true
+        {}
       Topic:
         Depth: 5
         Durability Policy: Volatile
@@ -469,7 +475,7 @@ Visualization Manager:
       Enabled: true
       Name: Final Marker
       Namespaces:
-        final: true
+        {}
       Topic:
         Depth: 5
         Durability Policy: Volatile
@@ -477,6 +483,84 @@ Visualization Manager:
         History Policy: Keep Last
         Reliability Policy: Best Effort
         Value: /analysis/final_marker
+      Value: true
+    - Angle Tolerance: 0.10000000149011612
+      Class: rviz_default_plugins/Odometry
+      Covariance:
+        Orientation:
+          Alpha: 0.5
+          Color: 255; 255; 127
+          Color Style: Unique
+          Frame: Local
+          Offset: 1
+          Scale: 1
+          Value: true
+        Position:
+          Alpha: 0.30000001192092896
+          Color: 204; 51; 204
+          Scale: 1
+          Value: true
+        Value: true
+      Enabled: true
+      Keep: 10
+      Name: EKF Odometry
+      Position Tolerance: 0.10000000149011612
+      Shape:
+        Alpha: 1
+        Axes Length: 1
+        Axes Radius: 0.10000000149011612
+        Color: 255; 25; 0
+        Head Length: 0.30000001192092896
+        Head Radius: 0.10000000149011612
+        Shaft Length: 1
+        Shaft Radius: 0.05000000074505806
+        Value: Axes
+      Topic:
+        Depth: 5
+        Durability Policy: Volatile
+        Filter size: 10
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+        Value: /odometry/filtered
+      Value: true
+    - Angle Tolerance: 0.10000000149011612
+      Class: rviz_default_plugins/Odometry
+      Covariance:
+        Orientation:
+          Alpha: 0.5
+          Color: 255; 255; 127
+          Color Style: Unique
+          Frame: Local
+          Offset: 1
+          Scale: 1
+          Value: true
+        Position:
+          Alpha: 0.30000001192092896
+          Color: 204; 51; 204
+          Scale: 1
+          Value: true
+        Value: true
+      Enabled: true
+      Keep: 10
+      Name: GPS Odometry
+      Position Tolerance: 0.10000000149011612
+      Shape:
+        Alpha: 1
+        Axes Length: 1
+        Axes Radius: 0.10000000149011612
+        Color: 255; 25; 0
+        Head Length: 0.30000001192092896
+        Head Radius: 0.10000000149011612
+        Shaft Length: 1
+        Shaft Radius: 0.05000000074505806
+        Value: Arrow
+      Topic:
+        Depth: 5
+        Durability Policy: Volatile
+        Filter size: 10
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+        Value: /odometry/gps
       Value: true
   Enabled: true
   Global Options:
@@ -524,7 +608,7 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz_default_plugins/Orbit
-      Distance: 29.930673599243164
+      Distance: 29.849706649780273
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
@@ -539,10 +623,10 @@ Visualization Manager:
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 0.23039691150188446
+      Pitch: 0.6103968620300293
       Target Frame: <Fixed Frame>
       Value: Orbit (rviz_default_plugins)
-      Yaw: 5.340864181518555
+      Yaw: 2.4026811122894287
     Saved:
       - Class: rviz_default_plugins/ThirdPersonFollower
         Distance: 20

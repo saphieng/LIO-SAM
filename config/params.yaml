@@ -10,7 +10,7 @@
     gpsOdomTopic: "/odometry/filtered" #"/lio_sam/gps/odom"
 
     # Frames
-    lidarFrame: "base_link"
+    lidarFrame: "os_sensor"                     
     baselinkFrame: "base_link"
     odometryFrame: "odom"
     mapFrame: "map"
@@ -19,8 +19,8 @@
     useImuHeadingInitialization: true           # if using GPS data, set to "true"
     useGpsElevation: true                       # if GPS elevation is bad, set to "false"
     gpsCovThreshold: 2.0                         # m^2, threshold for using GPS data
-    poseCovThreshold: 25.0                       # m^2, threshold for using GPS data
-    gpsPointThreshold: 1.0                       # m, distance between GPS points for adding factor
+    poseCovThreshold: 0.0 #25.0                       # m^2, threshold for using GPS data
+    gpsPointThreshold: -1.0                       # m, distance between GPS points for adding factor
 
     # Export settings
     savePCD: true                               # https://github.com/TixiaoShan/LIO-SAM/issues/3
@@ -42,10 +42,10 @@
     imuGyrBiasN: 0.00001
 
     imuGravity: 9.80511
-    imuRPYWeight: 0.01
+    imuRPYWeight: 0.5
 
     # Certus
-    extrinsicTrans:  [ 0.0,  0.0,  -0.0899]
+    extrinsicTrans:  [ 0.0,  0.0,  -0.08011]
     extrinsicRot:    [1.0,  0.0,  0.0,
                       0.0,  1.0,  0.0,
                       0.0,  0.0,  1.0 ]
@@ -61,13 +61,13 @@
     surfFeatureMinValidNum: 50
 
     # voxel filter paprams
-    odometrySurfLeafSize: 0.2                     # default: 0.4 - outdoor, 0.2 - indoor
-    mappingCornerLeafSize: 0.1                    # default: 0.2 - outdoor, 0.1 - indoor
-    mappingSurfLeafSize: 0.2                      # default: 0.4 - outdoor, 0.2 - indoor
+    odometrySurfLeafSize: 0.4                     # default: 0.4 - outdoor, 0.2 - indoor
+    mappingCornerLeafSize: 0.2                    # default: 0.2 - outdoor, 0.1 - indoor
+    mappingSurfLeafSize: 0.4                      # default: 0.4 - outdoor, 0.2 - indoor
 
     # robot motion constraint (in case you are using a 2D robot)
     z_tolerance: 5.0 #5.0                          # meters
-    rotation_tolerance: 1000.0 #6.5                   # radians
+    rotation_tolerance: 6.5  #1000.0 #6.5                   # radians
 
     # CPU Params
     numberOfCores: 10                            # number of cores for mapping optimization
@@ -86,7 +86,7 @@
     surroundingKeyframeSize: 50                   # submap size (when loop closure enabled)
     historyKeyframeSearchRadius: 25.0             # meters, key frame that is within n meters from
     # current pose will be considerd for loop closure
-    historyKeyframeSearchTimeDiff: 30.0          # seconds, key frame that is n seconds older will be
+    historyKeyframeSearchTimeDiff: 60.0          # seconds, key frame that is n seconds older will be
     # considered for loop closure
     historyKeyframeSearchNum: 25                  # number of hostory key frames will be fused into a
     # submap for loop closure

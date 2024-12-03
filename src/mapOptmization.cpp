@@ -1399,20 +1399,25 @@ public:
 
     void addGPSFactor()
     {
+        
+        // std::cout << " *** GPS Factor *** " << std::endl;
         if (gpsQueue.empty())
         {
+            // std::cout << " *** GPS Queue Empty *** " << std::endl;
             return;
         }
 
         // wait for system initialized and settles down
         if (cloudKeyPoses3D->points.empty()) 
         {
+            // std::cout << " *** Cloud Key Poses Empty *** " << std::endl;
             return;
         }
         else
         {
-            if (pointDistance(cloudKeyPoses3D->front(), cloudKeyPoses3D->back()) < gpsPointThreshold)
+            if (gpsPointThreshold > 0.0 && pointDistance(cloudKeyPoses3D->front(), cloudKeyPoses3D->back()) < gpsPointThreshold)
             {
+                // std::cout << " *** Cloud Key Poses less than threshold *** " << std::endl;
                 return;
             }
         }
@@ -1420,6 +1425,7 @@ public:
         // pose covariance small, no need to correct
         if (poseCovariance(3,3) < poseCovThreshold && poseCovariance(4,4) < poseCovThreshold)
         {
+            // std::cout << " *** Pose Covariance Small *** " << std::endl;
             return;
         }
 
@@ -1431,11 +1437,13 @@ public:
             if (stamp2Sec(gpsQueue.front().header.stamp) < timeLaserInfoCur - 0.2)
             {
                 // message too old
+                // std::cout << " *** GPS Message too old *** " << std::endl;
                 gpsQueue.pop_front();
             }
             else if (stamp2Sec(gpsQueue.front().header.stamp) > timeLaserInfoCur + 0.2)
             {
                 // message too new
+                // std::cout << " *** GPS Message too new *** " << std::endl;
                 break;
             }
             else
@@ -1450,6 +1458,7 @@ public:
                 
                 if (noise_x > gpsCovThreshold || noise_y > gpsCovThreshold)
                 {
+                    // std::cout << " *** GPS Covariance too large *** " << std::endl;
                     continue;
                 }
 
@@ -1476,12 +1485,14 @@ public:
                 curGPSPoint.y = gps_y;
                 curGPSPoint.z = gps_z;
 
-                if (pointDistance(curGPSPoint, lastGPSPoint) < gpsPointThreshold)
+                if (gpsPointThreshold > 0.0 && pointDistance(curGPSPoint, lastGPSPoint) < gpsPointThreshold)
                 {
+                    // std::cout << " *** GPS Point Separation less than threshold *** " << std::endl;
                     continue;
                 }
                 else
                 {
+                    // std::cout << " *** GPS Updated *** " << std::endl;   
                     lastGPSPoint = curGPSPoint;
                 }
 
@@ -1700,11 +1711,12 @@ public:
             increOdomAffine = increOdomAffine * affineIncre;
             float x, y, z, roll, pitch, yaw;
             pcl::getTranslationAndEulerAngles (increOdomAffine, x, y, z, roll, pitch, yaw);
+
             if (cloudInfo.imu_available == true)
             {
                 if (std::abs(cloudInfo.imu_pitch_init) < 1.4)
                 {
-                    double imuWeight = 0.1;
+                    double imuWeight = imuRPYWeight;
                     tf2::Quaternion imuQuaternion;
                     tf2::Quaternion transformQuaternion;
                     double rollMid, pitchMid, yawMid;
