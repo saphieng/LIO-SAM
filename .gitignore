@@ -1,0 +1,12 @@
+# ignore all logs
+*.log
+**/log
+**/install
+**/build
+
+
+# Ouster outputs
+*metadata.json
+
+# vscode config
+.vscode
