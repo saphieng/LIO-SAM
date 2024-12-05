@@ -1716,7 +1716,7 @@ public:
             {
                 if (std::abs(cloudInfo.imu_pitch_init) < 1.4)
                 {
-                    double imuWeight = imuRPYWeight;
+                    double imuWeight = 0.1; //imuRPYWeight; //zzCJ: This was changed from 0.1, not sure why it was hardcoded...
                     tf2::Quaternion imuQuaternion;
                     tf2::Quaternion transformQuaternion;
                     double rollMid, pitchMid, yawMid;

@@ -33,7 +33,15 @@ def generate_launch_description():
             cmd=[
                 FindExecutable(name='ros2'),
                 "service", "call", "/set_pose", "robot_localization/srv/SetPose",
-                '"{geo_pose: {position: {latitude: 41.024252, longitude: -105.5685, altitude: 2468.53}, orientation: {x: 0.0, y: 0.0, z: 0.0, w: 1.0}}}"'
+                '"{pose: {header: {frame_id: odom, stamp: {sec: 0, nanosec: 0}}, pose: {pose: {position: {x: 0.0, y: 0.0, z: 0.0}, orientation: {x: 0.0, y: 0.0, z: 0.0, w: 1.0 }}, covariance: [1.0, 0, 0, 0, 0, 0, 0, 1.0, 0, 0, 0, 0, 0, 0, 1.0, 0, 0, 0, 0, 0, 0, 1.0, 0, 0, 0, 0, 0, 0, 1.0, 0, 0, 0, 0, 0, 0, 1.0]}}}"'
+            ],
+            shell=True
+        )
+    
+    enable = ExecuteProcess(
+            cmd=[
+                FindExecutable(name='ros2'),
+                "service", "call", "/enable", "std_srvs/srv/Empty"       
             ],
             shell=True
         )
@@ -79,13 +87,23 @@ def generate_launch_description():
             output='screen',
         ),
         TimerAction(
-            period=5.0,  # Delay in seconds
+            period=2.0,  # Delay in secondss
             actions=[LogInfo(msg='Setting datum and pose...'), 
                      set_datum]
         ),
         TimerAction(
-                period=10.0,
-                actions=[LogInfo(msg='Localisation node is running, allowing time to converge...'),
+            period=6.0,  # Delay in seconds
+            actions=[LogInfo(msg='Enabling EKF...'), 
+                     enable]
+        ),
+        # TimerAction(
+        #     period=6.0,  # Delay in seconds
+        #     actions=[LogInfo(msg='Setting pose...'), 
+        #              set_pose]
+        # ),
+        TimerAction(
+                period=8.0,
+                actions=[LogInfo(msg='Localisation node is running, starting LIO-SAM...'),
                         # Node(
                         #     package='lio_sam',
                         #     executable='lio_sam_simpleGpsOdom',
@@ -135,11 +153,11 @@ def generate_launch_description():
                         )
                         ],
         ),
-        # TimerAction(
-        #         period=12.0,
-        #         actions=[LogInfo(msg='Starting Octomap Server...'),
-        #                 IncludeLaunchDescription(PythonLaunchDescriptionSource([octo_launch_file])),
-        #                 ],
-        # ),
+        TimerAction(
+                period=8.0,
+                actions=[LogInfo(msg='Starting Octomap Server...'),
+                        IncludeLaunchDescription(PythonLaunchDescriptionSource([octo_launch_file])),
+                        ],
+        ),
 
     ])
