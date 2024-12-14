@@ -38,7 +38,6 @@ def generate_launch_description():
     #         shell=True
     #     )
     
-    
     set_pose = ExecuteProcess(
             cmd=[
                 FindExecutable(name='ros2'),
@@ -120,14 +119,14 @@ def generate_launch_description():
         TimerAction(
                 period=8.0,
                 actions=[LogInfo(msg='Localisation node is running, starting LIO-SAM...'),
-                        # Node(
-                        #     package='lio_sam',
-                        #     executable='lio_sam_simpleGpsOdom',
-                        #     name='lio_sam_simpleGpsOdom',
-                        #     parameters=[parameter_file],
-                        #     arguments=['--ros-args', '--log-level', 'info'],
-                        #     output='screen'
-                        # ),
+                        Node(
+                            package='lio_sam',
+                            executable='lio_sam_simpleGpsOdom',
+                            name='lio_sam_simpleGpsOdom',
+                            parameters=[parameter_file],
+                            arguments=['--ros-args', '--log-level', 'info'],
+                            output='screen'
+                        ),
                         # Node(
                         #     package='lio_sam',
                         #     executable='lio_sam_imuPreintegration',
@@ -160,26 +159,26 @@ def generate_launch_description():
                             arguments=['--ros-args', '--log-level', 'info'],
                             output='screen'
                         ),
-                        # Node(
-                        #     package='rviz2',
-                        #     executable='rviz2',
-                        #     name='rviz2',
-                        #     arguments=['-d', rviz_config_file],
-                        #     output='screen'
-                        # )
+                        Node(
+                            package='rviz2',
+                            executable='rviz2',
+                            name='rviz2',
+                            arguments=['-d', rviz_config_file],
+                            output='screen'
+                        )
                         ],
         ),
-        TimerAction(
-                period=8.0,
-                actions=[LogInfo(msg='Starting Octomap Server...'),
-                        IncludeLaunchDescription(PythonLaunchDescriptionSource([octo_launch_file])),
-                        ],
-        ),
-        TimerAction(
-                period=10.0,
-                actions=[LogInfo(msg='Starting Analysis...'),
-                        IncludeLaunchDescription(PythonLaunchDescriptionSource([anal_launch_file])),
-                        ],
-        ),
+        # TimerAction(
+        #         period=8.0,
+        #         actions=[LogInfo(msg='Starting Octomap Server...'),
+        #                 IncludeLaunchDescription(PythonLaunchDescriptionSource([octo_launch_file])),
+        #                 ],
+        # ),
+        # TimerAction(
+        #         period=10.0,
+        #         actions=[LogInfo(msg='Starting Analysis...'),
+        #                 IncludeLaunchDescription(PythonLaunchDescriptionSource([anal_launch_file])),
+        #                 ],
+        # ),
 
     ])

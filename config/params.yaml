@@ -7,10 +7,10 @@
     odomTopic: "/odometry/imu"                   # IMU pre-preintegration odometry, same frequency as IMU
     gpsTopic: "/gps/fix"                        # GPS odometry topic from navsat, see module_navsat.launch file
     #gpsOdomTopic: "/NavOdom"                    # GPS odometry topic from navsat, see module_navsat.launch file
-    gpsOdomTopic: "/odometry/filtered" #"/lio_sam/gps/odom"
+    gpsOdomTopic: "/lio_sam/gps/odom" # "/odometry/filtered" # 
 
     # Frames
-    lidarFrame: "os_sensor"                     
+    lidarFrame: "base_link"                     
     baselinkFrame: "base_link"
     odometryFrame: "odom"
     mapFrame: "map"
@@ -18,9 +18,9 @@
     # GPS Settings
     useImuHeadingInitialization: true           # if using GPS data, set to "true"
     useGpsElevation: true                       # if GPS elevation is bad, set to "false"
-    gpsCovThreshold: 2.0                         # m^2, threshold for using GPS data
-    poseCovThreshold: 25.0                       # m^2, threshold for using GPS data
-    gpsPointThreshold: 0.5                       # m, distance between GPS points for adding factor
+    gpsCovThreshold: 2.0                         # m^2, threshold for using GPS data //CJ Make bigger to let through more GPS data, else smaller means only accurate GPS data will get through
+    poseCovThreshold: 1.0 #25.0                       # m^2, threshold for using GPS data //CJ Make smaller to let through more GPS data, else bigger means trust the LIO poses more
+    gpsPointThreshold: -0.5                       # m, distance between GPS points for adding factor //CJ Make negative to let as many points satifying the above through, else set to distance between GPS points
 
     # Export settings
     savePCD: true                               # https://github.com/TixiaoShan/LIO-SAM/issues/3
@@ -42,7 +42,7 @@
     imuGyrBiasN: 0.00001
 
     imuGravity: 9.80511
-    imuRPYWeight: 0.9
+    imuRPYWeight: 0.1
 
     # Certus
     extrinsicTrans:  [ 0.0,  0.0,  -0.08011]
