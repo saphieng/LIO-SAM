@@ -28,6 +28,16 @@ def generate_launch_description():
             ],
             shell=True
         )
+
+    # set_datum = ExecuteProcess(
+    #     cmd=[
+    #             FindExecutable(name='ros2'),
+    #             "service", "call", "/datum", "robot_localization/srv/SetDatum",
+    #             '"{geo_pose: {position: {latitude: 41.0047457, longitude: -105.5694040, altitude: 2548.0}, orientation: {x: 0.0, y: 0.0, z: 0.0, w: 1.0}}}"'
+    #         ],
+    #         shell=True
+    #     )
+    
     
     set_pose = ExecuteProcess(
             cmd=[
@@ -50,6 +60,12 @@ def generate_launch_description():
         get_package_share_directory('octomap_server2'),
         'launch',
         'octomap_server_launch.py'
+        )
+    
+    anal_launch_file = os.path.join(
+        get_package_share_directory('analysis'),
+        'launch',
+        'analysis.launch.py'
         )
 
     # print("urdf_file_name : {}".format(xacro_path))
@@ -144,19 +160,25 @@ def generate_launch_description():
                             arguments=['--ros-args', '--log-level', 'info'],
                             output='screen'
                         ),
-                        Node(
-                            package='rviz2',
-                            executable='rviz2',
-                            name='rviz2',
-                            arguments=['-d', rviz_config_file],
-                            output='screen'
-                        )
+                        # Node(
+                        #     package='rviz2',
+                        #     executable='rviz2',
+                        #     name='rviz2',
+                        #     arguments=['-d', rviz_config_file],
+                        #     output='screen'
+                        # )
                         ],
         ),
         TimerAction(
                 period=8.0,
                 actions=[LogInfo(msg='Starting Octomap Server...'),
                         IncludeLaunchDescription(PythonLaunchDescriptionSource([octo_launch_file])),
+                        ],
+        ),
+        TimerAction(
+                period=10.0,
+                actions=[LogInfo(msg='Starting Analysis...'),
+                        IncludeLaunchDescription(PythonLaunchDescriptionSource([anal_launch_file])),
                         ],
         ),
 
