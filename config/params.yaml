@@ -42,7 +42,7 @@
     imuGyrBiasN: 0.00001
 
     imuGravity: 9.80511
-    imuRPYWeight: 0.1
+    imuRPYWeight: 0.7
 
     # Certus
     extrinsicTrans:  [ 0.0,  0.0,  -0.08011]
