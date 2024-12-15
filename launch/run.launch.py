@@ -20,15 +20,17 @@ def generate_launch_description():
             share_dir, 'config', 'params.yaml'),
         description='FPath to the ROS2 parameters file to use.')
     
+    ## PUMA MINE LLA ORIGIN: 41.024350, -105.568500, 2465.18
     set_datum = ExecuteProcess(
         cmd=[
                 FindExecutable(name='ros2'),
                 "service", "call", "/datum", "robot_localization/srv/SetDatum",
-                '"{geo_pose: {position: {latitude: 41.024252, longitude: -105.5685, altitude: 2468.53}, orientation: {x: 0.0, y: 0.0, z: 0.0, w: 1.0}}}"'
+                '"{geo_pose: {position: {latitude: 41.024350, longitude: -105.568500, altitude: 2465.18}, orientation: {x: 0.0, y: 0.0, z: 0.0, w: 1.0}}}"'
             ],
             shell=True
         )
-
+    
+    # THIS IS THE HOME ORIGIN
     # set_datum = ExecuteProcess(
     #     cmd=[
     #             FindExecutable(name='ros2'),
