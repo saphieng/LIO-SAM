@@ -116,6 +116,11 @@ public:
     Eigen::Vector3d extTrans;
     Eigen::Quaterniond extQRPY;
 
+    // LIO Simple GPS Odom
+    float originLatitude;
+    float originLongitude;
+    float originAltitude;
+
     // LOAM
     float edgeThreshold;
     float surfThreshold;
@@ -331,6 +336,14 @@ public:
         declare_parameter("exclusionBox", temp_vec);
         get_parameter("exclusionBox", exclusionBoxV);
         exclusionBox = Eigen::Map<const Eigen::Matrix<double, -1, -1, Eigen::RowMajor>>(exclusionBoxV.data(), 3, 2);
+
+        // LIO Simple GPS Odom
+        declare_parameter("originLatitude", -91.0);
+        get_parameter("originLatitude", originLatitude);
+        declare_parameter("originLongitude", -181.0);
+        get_parameter("originLongitude", originLongitude);
+        declare_parameter("originAltitude", -999.999);
+        get_parameter("originAltitude", originAltitude);
 
         usleep(100);
     }

@@ -82,10 +82,13 @@ class GNSSOdom : public ParamServer
             // std::cout << "LLA: " << lla.transpose() << std::endl;
             if (!initXyz)
             {
-                // zzCJ: TEMP SET LLA TO MINE ORIGIN
-                lla[0] = 41.024350;
-                lla[1] = -105.568500;
-                lla[2] = 2465.18;
+                // Use origin from params file
+                if(abs(originLatitude) <= 90.0f && abs(originLatitude) <= 180.0f)
+                {
+                    lla[0] = originLatitude;
+                    lla[1] = originLongitude;
+                    lla[2] = originAltitude;
+                }
 
                 RCLCPP_INFO(this->get_logger(), "Init Orgin GPS LLA  %f, %f, %f", msg->latitude, msg->longitude,
                             msg->altitude);
