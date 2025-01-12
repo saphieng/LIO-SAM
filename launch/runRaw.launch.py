@@ -92,17 +92,17 @@ def generate_launch_description():
             arguments=['-d', rviz_config_file],
             output='screen'
         ),
-        TimerAction(
-                period=8.0,
-                actions=[LogInfo(msg='Starting Octomap Server...'),
-                        IncludeLaunchDescription(PythonLaunchDescriptionSource([octo_launch_file])),
-                        ],
-        ),
-        TimerAction(
-                period=10.0,
-                actions=[LogInfo(msg='Starting Analysis...'),
-                        IncludeLaunchDescription(PythonLaunchDescriptionSource([anal_launch_file])),
-                        ],
-        ),
+        # TimerAction(
+        #         period=8.0,
+        #         actions=[LogInfo(msg='Starting Octomap Server...'),
+        #                 IncludeLaunchDescription(PythonLaunchDescriptionSource([octo_launch_file])),
+        #                 ],
+        # ),
+        # TimerAction(
+        #         period=10.0,
+        #         actions=[LogInfo(msg='Starting Analysis...'),
+        #                 IncludeLaunchDescription(PythonLaunchDescriptionSource([anal_launch_file])),
+        #                 ],
+        # ),
 
     ])
