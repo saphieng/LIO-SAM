@@ -8,6 +8,7 @@
     gpsTopic: "/gps/fix"                        # GPS odometry topic from navsat, see module_navsat.launch file
     #gpsOdomTopic: "/NavOdom"                    # GPS odometry topic from navsat, see module_navsat.launch file
     gpsOdomTopic: "/lio_sam/gps/odom" # "/odometry/filtered" # 
+    imgMaskTopic: "/segmentation/ousterMask"
 
     # Frames
     lidarFrame: "base_link"                     

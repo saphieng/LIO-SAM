@@ -72,6 +72,7 @@ public:
     //Topics
     string pointCloudTopic;
     string imuTopic;
+    string imgMaskTopic;
     string odomTopic;
     string gpsTopic;
     string gpsOdomTopic;
@@ -170,6 +171,8 @@ public:
         get_parameter("pointCloudTopic", pointCloudTopic);
         declare_parameter("imuTopic", "imu/data");
         get_parameter("imuTopic", imuTopic);
+        declare_parameter("imgMaskTopic", "img/mask");
+        get_parameter("imgMaskTopic", imgMaskTopic);
         declare_parameter("odomTopic", "lio_sam/odometry/imu");
         get_parameter("odomTopic", odomTopic);
         declare_parameter("gpsTopic", "lio_sam/fix/gps");

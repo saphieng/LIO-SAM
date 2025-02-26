@@ -1,5 +1,7 @@
 #include "utility.hpp"
 #include "lio_sam/msg/cloud_info.hpp"
+#include <cv_bridge/cv_bridge.h>
+#include <opencv2/opencv.hpp>
 
 struct VelodynePointXYZIRT
 {
@@ -30,6 +32,12 @@ POINT_CLOUD_REGISTER_POINT_STRUCT(OusterPointXYZIRT,
     (uint8_t, ring, ring) (uint16_t, noise, noise) (uint32_t, range, range)
 )
 
+struct MaskData
+{
+    cv::Mat mask;
+    rclcpp::Time timestamp;
+};
+
 // Use the Velodyne point format as a common representation
 using PointXYZIRT = OusterPointXYZIRT;
 
@@ -40,6 +48,7 @@ class ImageProjection : public ParamServer
 private:
 
     std::mutex imuLock;
+    std::mutex imgMaskLock;
     std::mutex odoLock;
 
     rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr subLaserCloud;
@@ -52,6 +61,10 @@ private:
     rclcpp::Subscription<sensor_msgs::msg::Imu>::SharedPtr subImu;
     rclcpp::CallbackGroup::SharedPtr callbackGroupImu;
     std::deque<sensor_msgs::msg::Imu> imuQueue;
+
+    rclcpp::Subscription<sensor_msgs::msg::Image>::SharedPtr subImgMask;
+    rclcpp::CallbackGroup::SharedPtr callbackGroupImgMask;
+    std::deque<MaskData> imgMaskQueue;
 
     rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr subOdom;
     rclcpp::CallbackGroup::SharedPtr callbackGroupOdom;
@@ -102,6 +115,8 @@ public:
             rclcpp::CallbackGroupType::MutuallyExclusive);
         callbackGroupImu = create_callback_group(
             rclcpp::CallbackGroupType::MutuallyExclusive);
+        callbackGroupImgMask = create_callback_group(
+            rclcpp::CallbackGroupType::MutuallyExclusive);
         callbackGroupOdom = create_callback_group(
             rclcpp::CallbackGroupType::MutuallyExclusive);
 
@@ -109,6 +124,8 @@ public:
         lidarOpt.callback_group = callbackGroupLidar;
         auto imuOpt = rclcpp::SubscriptionOptions();
         imuOpt.callback_group = callbackGroupImu;
+        auto imgMaskOpt = rclcpp::SubscriptionOptions();
+        imgMaskOpt.callback_group = callbackGroupImgMask;
         auto odomOpt = rclcpp::SubscriptionOptions();
         odomOpt.callback_group = callbackGroupOdom;
 
@@ -116,6 +133,10 @@ public:
             imuTopic, qos_imu,
             std::bind(&ImageProjection::imuHandler, this, std::placeholders::_1),
             imuOpt);
+        subImgMask = create_subscription<sensor_msgs::msg::Image>(
+            imgMaskTopic, qos,
+            std::bind(&ImageProjection::imgMsgHandler, this, std::placeholders::_1),
+            imgMaskOpt);
         subOdom = create_subscription<nav_msgs::msg::Odometry>(
             odomTopic + "_incremental", qos_imu,
             std::bind(&ImageProjection::odometryHandler, this, std::placeholders::_1),
@@ -205,6 +226,21 @@ public:
         // tf2::Matrix3x3(orientation).getRPY(imuRoll, imuPitch, imuYaw);
         // std::cout << "IMU roll pitch yaw: " << std::endl;
         // std::cout << "roll: " << imuRoll*180.0f/M_PI << "\npitch: " << imuPitch*180.0f/M_PI << "\nyaw: " << imuYaw*180.0f/M_PI << std::endl << std::endl;
+    }
+
+    void imgMsgHandler(const sensor_msgs::msg::Image::SharedPtr imgMsg)
+    {
+        sensor_msgs::msg::Image thisImg = *imgMsg;
+
+        // Convert the ROS image message to OpenCV format
+        cv_bridge::CvImagePtr cv_ptr = cv_bridge::toCvCopy(thisImg, "mono8");
+
+        // Store the transformed image in the mask queue
+        MaskData mask_data{cv_ptr->image, thisImg.header.stamp};
+        {
+            std::lock_guard<std::mutex> lock1(imgMaskLock);
+            imgMaskQueue.push_back(mask_data);
+        }
     }
 
     void odometryHandler(const nav_msgs::msg::Odometry::SharedPtr odometryMsg)
@@ -571,6 +607,39 @@ public:
     void projectPointCloud()
     {
         int cloudSize = laserCloudIn->points.size();
+
+        bool enableMasking = true;
+
+        // Lock and find the closest mask
+        cv::Mat mask_image;
+        {
+            std::lock_guard<std::mutex> lock(imgMaskLock);
+            // zzCJ: This will not project the point cloud if there is no mask... Is this ok?
+            if (imgMaskQueue.empty())
+            {
+                RCLCPP_WARN(this->get_logger(), "Mask queue is empty. Skipping masking.");
+                enableMasking = false;
+            }
+
+            // Find closest timestamp match
+            auto closest_mask = imgMaskQueue.front();
+            rclcpp::Time cloud_stamp(static_cast<int64_t>(laserCloudIn->header.stamp), RCL_ROS_TIME);
+
+            while (imgMaskQueue.size() > 1)
+            {
+                auto next_mask = imgMaskQueue.front();
+                imgMaskQueue.pop_front();
+
+                if (std::abs((cloud_stamp - next_mask.timestamp).seconds()) <
+                    std::abs((cloud_stamp - closest_mask.timestamp).seconds()))
+                {
+                    closest_mask = next_mask;
+                }
+            }
+
+            mask_image = closest_mask.mask;
+        }
+        
         // range image projection
         for (int i = 0; i < cloudSize; ++i)
         {
@@ -634,6 +703,14 @@ public:
 
             if (rangeMat.at<float>(rowIdn, columnIdn) != FLT_MAX)
                 continue;
+
+            if (enableMasking && (rowIdn >= 0 && rowIdn < mask_image.rows) && (columnIdn >= 0 && columnIdn < mask_image.cols))
+            {
+                if (mask_image.at<uint8_t>(rowIdn, columnIdn) < 100)
+                {
+                    continue;
+                }
+            }
 
             thisPoint = deskewPoint(&thisPoint, laserCloudIn->points[i].time);
 
