@@ -604,51 +604,54 @@ public:
         return newPoint;
     }
 
-    void projectPointCloud()
-    {
-        int cloudSize = laserCloudIn->points.size();
-
+    void projectPointCloud() {
+        const int cloudSize = laserCloudIn->points.size();
+        if (cloudSize == 0) return;
+    
         bool enableMasking = true;
-
-        // Lock and find the closest mask
         cv::Mat mask_image;
+    
+        // ------ Mask Handling ------
         {
             std::lock_guard<std::mutex> lock(imgMaskLock);
-            // zzCJ: This will not project the point cloud if there is no mask... Is this ok?
-            if (imgMaskQueue.empty())
-            {
-                RCLCPP_WARN(this->get_logger(), "Mask queue is empty. Skipping masking.");
+            if (imgMaskQueue.empty()) {
+                // RCLCPP_WARN(this->get_logger(), "Mask queue is empty. Skipping masking.");
                 enableMasking = false;
-            }
-
-            // Find closest timestamp match
-            auto closest_mask = imgMaskQueue.front();
-            rclcpp::Time cloud_stamp(static_cast<int64_t>(laserCloudIn->header.stamp), RCL_ROS_TIME);
-
-            while (imgMaskQueue.size() > 1)
-            {
-                auto next_mask = imgMaskQueue.front();
-                imgMaskQueue.pop_front();
-
-                if (std::abs((cloud_stamp - next_mask.timestamp).seconds()) <
-                    std::abs((cloud_stamp - closest_mask.timestamp).seconds()))
-                {
-                    closest_mask = next_mask;
+            } else {
+                auto closest_mask = imgMaskQueue.front();
+                rclcpp::Time cloud_stamp(static_cast<int64_t>(laserCloudIn->header.stamp), RCL_ROS_TIME);
+    
+                while (imgMaskQueue.size() > 1) {
+                    auto next_mask = imgMaskQueue.front();
+                    imgMaskQueue.pop_front();
+    
+                    double next_diff = std::abs((cloud_stamp - next_mask.timestamp).seconds());
+                    double closest_diff = std::abs((cloud_stamp - closest_mask.timestamp).seconds());
+    
+                    if (next_diff < closest_diff) {
+                        closest_mask = next_mask;
+                        if (next_diff < 0.001) break;  // Early break if very close match
+                    }
                 }
+                mask_image = closest_mask.mask;
             }
-
-            mask_image = closest_mask.mask;
         }
-        
-        // range image projection
-        for (int i = 0; i < cloudSize; ++i)
-        {
+    
+        // ------ Pre-calculations ------
+        static const float ang_res_x = 360.0f / static_cast<float>(Horizon_SCAN);
+    
+        // ------ Main Loop ------
+        #pragma omp parallel for
+        for (int i = 0; i < cloudSize; ++i) {
+            const auto &pt = laserCloudIn->points[i];
+
             PointType thisPoint;
             thisPoint.x = laserCloudIn->points[i].x;
             thisPoint.y = laserCloudIn->points[i].y;
             thisPoint.z = laserCloudIn->points[i].z;
             thisPoint.intensity = laserCloudIn->points[i].intensity;
-
+    
+            // Skip invalid points
             if (!std::isfinite(thisPoint.x) ||
                 !std::isfinite(thisPoint.y) ||
                 !std::isfinite(thisPoint.z))
@@ -657,69 +660,41 @@ public:
             float range = pointDistance(thisPoint);
             if (range < lidarMinRange || range > lidarMaxRange)
                 continue;
-
-            // std::cout << "** POINT: " << thisPoint.x << ", " << thisPoint.y << ", " << thisPoint.z << std::endl;
-
+    
             if (pointWithin(thisPoint, exlusionBoxMin, exlusionBoxMax))
-            {
-                // std::cout << " *** Point Within *** " << std::endl;
                 continue;
+    
+            // ------ Row Index ------
+            int rowIdn = pt.ring;
+            if (ringFlag == 2) {  // Velodyne calculation
+                rowIdn = static_cast<int>((atan2(thisPoint.z, sqrt(thisPoint.x * thisPoint.x + thisPoint.y * thisPoint.y))  * 180.0 / M_PI + (N_SCAN - 1)) / 2.0);
             }
-
-            int rowIdn = laserCloudIn->points[i].ring;
-
-            // if sensor is a velodyne (ringFlag = 2) calculate rowIdn based on number of scans
-            if (ringFlag == 2) { 
-                float verticalAngle =
-                    atan2(thisPoint.z,
-                        sqrt(thisPoint.x * thisPoint.x + thisPoint.y * thisPoint.y)) *
-                    180 / M_PI;
-                rowIdn = (verticalAngle + (N_SCAN - 1)) / 2.0;
-            }
-
-            if (rowIdn < 0 || rowIdn >= N_SCAN)
+            if (rowIdn < 0 || rowIdn >= N_SCAN || rowIdn % downsampleRate != 0)
                 continue;
-
-            if (rowIdn % downsampleRate != 0) 
-                continue;
-
+    
+            // ------ Column Index ------
             int columnIdn = -1;
-            if (sensor == SensorType::VELODYNE || sensor == SensorType::OUSTER)
-            {
-                float horizonAngle = atan2(thisPoint.x, thisPoint.y) * 180 / M_PI;
-                static float ang_res_x = 360.0/float(Horizon_SCAN);
-                columnIdn = -round((horizonAngle-90.0)/ang_res_x) + Horizon_SCAN/2;
-                if (columnIdn >= Horizon_SCAN)
-                    columnIdn -= Horizon_SCAN;
+            if (sensor == SensorType::VELODYNE || sensor == SensorType::OUSTER) {
+                float horizonAngle = atan2(thisPoint.x, thisPoint.y) * 180.0f / M_PI;
+                columnIdn = static_cast<int>(-round((horizonAngle - 90.0f) / ang_res_x) + Horizon_SCAN / 2);
+                if (columnIdn >= Horizon_SCAN) columnIdn -= Horizon_SCAN;
+            } else if (sensor == SensorType::LIVOX) {
+                columnIdn = columnIdnCountVec[rowIdn]++;
             }
-            else if (sensor == SensorType::LIVOX)
-            {
-                columnIdn = columnIdnCountVec[rowIdn];
-                columnIdnCountVec[rowIdn] += 1;
-            }
-
-            if (columnIdn < 0 || columnIdn >= Horizon_SCAN)
+            if (columnIdn < 0 || columnIdn >= Horizon_SCAN || rangeMat.at<float>(rowIdn, columnIdn) != FLT_MAX)
                 continue;
-
-            if (rangeMat.at<float>(rowIdn, columnIdn) != FLT_MAX)
+    
+            // ------ Mask Check ------
+            if (enableMasking && (rowIdn < mask_image.rows) && (columnIdn < mask_image.cols) &&
+                mask_image.at<uint8_t>(rowIdn, columnIdn) < 100)
                 continue;
-
-            if (enableMasking && (rowIdn >= 0 && rowIdn < mask_image.rows) && (columnIdn >= 0 && columnIdn < mask_image.cols))
-            {
-                if (mask_image.at<uint8_t>(rowIdn, columnIdn) < 100)
-                {
-                    continue;
-                }
-            }
-
+    
+            // ------ Deskew & Save Point ------
             thisPoint = deskewPoint(&thisPoint, laserCloudIn->points[i].time);
-
             rangeMat.at<float>(rowIdn, columnIdn) = range;
-
-            int index = columnIdn + rowIdn * Horizon_SCAN;
-            fullCloud->points[index] = thisPoint;
+            fullCloud->points[columnIdn + rowIdn * Horizon_SCAN] = thisPoint;
         }
-    }
+    }    
 
     void cloudExtraction()
     {
