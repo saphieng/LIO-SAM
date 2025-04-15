@@ -53,14 +53,14 @@ def generate_launch_description():
                 'robot_description': Command(['xacro', ' ', xacro_path])
             }]
         ),
-        Node(
-            package='lio_sam',
-            executable='lio_sam_gstreamerMasking',
-            name='lio_sam_gstreamerMasking',
-            parameters=[parameter_file],
-            arguments=['--ros-args', '--log-level', 'info'],
-            output='screen'
-        ),
+        # Node(
+        #     package='lio_sam',
+        #     executable='lio_sam_gstreamerMasking',
+        #     name='lio_sam_gstreamerMasking',
+        #     parameters=[parameter_file],
+        #     arguments=['--ros-args', '--log-level', 'info'],
+        #     output='screen'
+        # ),
         Node(
             package='lio_sam',
             executable='lio_sam_simpleGpsOdom',

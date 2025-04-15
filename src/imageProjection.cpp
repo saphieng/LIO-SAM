@@ -2,6 +2,8 @@
 #include "lio_sam/msg/cloud_info.hpp"
 #include <cv_bridge/cv_bridge.h>
 #include <opencv2/opencv.hpp>
+#include <gst/gst.h>
+#include <gst/app/gstappsink.h>
 
 struct VelodynePointXYZIRT
 {
@@ -58,12 +60,15 @@ private:
     rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr pubExtractedCloud;
     rclcpp::Publisher<lio_sam::msg::CloudInfo>::SharedPtr pubLaserCloudInfo;
 
+    rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr pubMask;
+    rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr pubOusterMask;
+
     rclcpp::Subscription<sensor_msgs::msg::Imu>::SharedPtr subImu;
     rclcpp::CallbackGroup::SharedPtr callbackGroupImu;
     std::deque<sensor_msgs::msg::Imu> imuQueue;
 
-    rclcpp::Subscription<sensor_msgs::msg::Image>::SharedPtr subImgMask;
-    rclcpp::CallbackGroup::SharedPtr callbackGroupImgMask;
+    // rclcpp::Subscription<sensor_msgs::msg::Image>::SharedPtr subImgMask;
+    // rclcpp::CallbackGroup::SharedPtr callbackGroupImgMask;
     std::deque<MaskData> imgMaskQueue;
 
     rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr subOdom;
@@ -106,6 +111,9 @@ private:
     pcl::PointXYZ exlusionBoxMin;
     pcl::PointXYZ exlusionBoxMax;
 
+    // GStreamer
+    GstElement *pipeline_ = nullptr;
+    GstElement *appsink_ = nullptr;
 
 public:
     ImageProjection(const rclcpp::NodeOptions & options) :
@@ -115,8 +123,6 @@ public:
             rclcpp::CallbackGroupType::MutuallyExclusive);
         callbackGroupImu = create_callback_group(
             rclcpp::CallbackGroupType::MutuallyExclusive);
-        callbackGroupImgMask = create_callback_group(
-            rclcpp::CallbackGroupType::MutuallyExclusive);
         callbackGroupOdom = create_callback_group(
             rclcpp::CallbackGroupType::MutuallyExclusive);
 
@@ -124,8 +130,6 @@ public:
         lidarOpt.callback_group = callbackGroupLidar;
         auto imuOpt = rclcpp::SubscriptionOptions();
         imuOpt.callback_group = callbackGroupImu;
-        auto imgMaskOpt = rclcpp::SubscriptionOptions();
-        imgMaskOpt.callback_group = callbackGroupImgMask;
         auto odomOpt = rclcpp::SubscriptionOptions();
         odomOpt.callback_group = callbackGroupOdom;
 
@@ -133,10 +137,6 @@ public:
             imuTopic, qos_imu,
             std::bind(&ImageProjection::imuHandler, this, std::placeholders::_1),
             imuOpt);
-        subImgMask = create_subscription<sensor_msgs::msg::Image>(
-            imgMaskTopic, qos,
-            std::bind(&ImageProjection::imgMsgHandler, this, std::placeholders::_1),
-            imgMaskOpt);
         subOdom = create_subscription<nav_msgs::msg::Odometry>(
             odomTopic + "_incremental", qos_imu,
             std::bind(&ImageProjection::odometryHandler, this, std::placeholders::_1),
@@ -146,16 +146,20 @@ public:
             std::bind(&ImageProjection::cloudHandler, this, std::placeholders::_1),
             lidarOpt);
 
+
         pubExtractedCloud = create_publisher<sensor_msgs::msg::PointCloud2>(
             "lio_sam/deskew/cloud_deskewed", 1);
         pubLaserCloudInfo = create_publisher<lio_sam::msg::CloudInfo>(
             "lio_sam/deskew/cloud_info", qos);
+        pubMask = create_publisher<sensor_msgs::msg::Image>(maskTopic, 10);
+        pubOusterMask = create_publisher<sensor_msgs::msg::Image>(imgMaskTopic, 10);
 
         exlusionBoxMin = pcl::PointXYZ(exclusionBox(0, 0), exclusionBox(1, 0), exclusionBox(2, 0));
         exlusionBoxMax = pcl::PointXYZ(exclusionBox(0, 1), exclusionBox(1, 1), exclusionBox(2, 1));
 
         allocateMemory();
         resetParameters();
+        initializePipeline();
 
         pcl::console::setVerbosityLevel(pcl::console::L_ERROR);
     }
@@ -200,8 +204,35 @@ public:
         columnIdnCountVec.assign(N_SCAN, 0);
     }
 
-    ~ImageProjection(){}
+    void initializePipeline()
+    {
+        gst_init(nullptr, nullptr);
 
+        std::string pipeline_desc =
+            "tcpclientsrc host=127.0.0.1 port=5003 ! tsdemux ! h265parse ! nvv4l2decoder ! nvvidconv ! video/x-raw,format=GRAY8 ! appsink name=sink";
+
+        GError *error = nullptr;
+        pipeline_ = gst_parse_launch(pipeline_desc.c_str(), &error);
+        if (!pipeline_) {
+            RCLCPP_ERROR(this->get_logger(), "Failed to create pipeline: %s", error->message);
+            g_error_free(error);
+            return;
+        }
+
+        appsink_ = gst_bin_get_by_name(GST_BIN(pipeline_), "sink");
+        g_object_set(appsink_, "emit-signals", TRUE, "sync", FALSE, nullptr);
+        g_signal_connect(appsink_, "new-sample", G_CALLBACK(sampleHandler), this);
+
+        gst_element_set_state(pipeline_, GST_STATE_PLAYING);
+
+        RCLCPP_INFO(this->get_logger(), "GStreamer pipeline launched...");
+    }
+
+    ~ImageProjection()
+    {
+        if (pipeline_) gst_object_unref(pipeline_);
+    }
+    
     void imuHandler(const sensor_msgs::msg::Imu::SharedPtr imuMsg)
     {
         sensor_msgs::msg::Imu thisImu = imuConverter(*imuMsg);
@@ -226,6 +257,81 @@ public:
         // tf2::Matrix3x3(orientation).getRPY(imuRoll, imuPitch, imuYaw);
         // std::cout << "IMU roll pitch yaw: " << std::endl;
         // std::cout << "roll: " << imuRoll*180.0f/M_PI << "\npitch: " << imuPitch*180.0f/M_PI << "\nyaw: " << imuYaw*180.0f/M_PI << std::endl << std::endl;
+    }
+
+    static GstFlowReturn sampleHandler(GstAppSink *sink, gpointer user_data)
+    {
+        auto *self = static_cast<ImageProjection*>(user_data);
+        GstSample *sample = gst_app_sink_pull_sample(sink);
+        if (!sample) return GST_FLOW_ERROR;
+
+        GstBuffer *buffer = gst_sample_get_buffer(sample);
+        GstCaps *caps = gst_sample_get_caps(sample);
+        GstStructure *s = gst_caps_get_structure(caps, 0);
+
+        int width, height;
+        gst_structure_get_int(s, "width", &width);
+        gst_structure_get_int(s, "height", &height);
+
+        GstMapInfo map;
+        if (!gst_buffer_map(buffer, &map, GST_MAP_READ)) {
+            gst_sample_unref(sample);
+            return GST_FLOW_ERROR;
+        }
+
+        cv::Mat mask_output(height, width, CV_8UC1, (void *)map.data, width);
+        cv::Mat resized_image, transformed_image, dilated_image, ouster_mask_output;
+
+        cv::resize(mask_output, resized_image, cv::Size(640, 640), 0, 0, cv::INTER_LINEAR);
+
+        if (self->homography.type() != CV_64FC1 || self->homography.rows != 3 || self->homography.cols != 3) {
+            std::cerr << "Homography has incorrect type or shape: "
+                      << self->homography.type() << " (" 
+                      << self->homography.rows << "x"
+                      << self->homography.cols << ")" << std::endl;
+            return GST_FLOW_ERROR;
+        }
+
+        // Transform and process
+        cv::warpPerspective(resized_image, transformed_image, self->homography,
+                            cv::Size(self->Horizon_SCAN, self->N_SCAN), cv::INTER_LINEAR,
+                            cv::BORDER_CONSTANT, cv::Scalar(255));
+
+        cv::bitwise_not(transformed_image, transformed_image);
+
+        cv::Mat kernel = cv::getStructuringElement(
+            cv::MORPH_RECT,
+            cv::Size(2 * self->pixelBuffer + 1, 2 * self->pixelBuffer + 1));
+
+        cv::dilate(transformed_image, dilated_image, kernel);
+
+        cv::bitwise_not(dilated_image, dilated_image);
+
+        cv::threshold(dilated_image, ouster_mask_output,
+                      self->maskingThreshold, 255, cv::THRESH_BINARY);
+
+        gst_buffer_unmap(buffer, &map);
+        gst_sample_unref(sample);
+
+        // Publish the mask message
+        std_msgs::msg::Header header;
+        header.stamp = self->now();
+        header.frame_id = "camera";
+
+        auto mask_msg = cv_bridge::CvImage(header, "mono8", resized_image).toImageMsg();
+        auto ouster_msg = cv_bridge::CvImage(header, "mono8", ouster_mask_output).toImageMsg();
+
+        self->pubMask->publish(*mask_msg);
+        self->pubOusterMask->publish(*ouster_msg);
+        
+        // Store the transformed image in the mask queue
+        MaskData mask_data{ouster_mask_output, header.stamp};
+        {
+            std::lock_guard<std::mutex> lock1(self->imgMaskLock);
+            self->imgMaskQueue.push_back(mask_data);
+        }
+
+        return GST_FLOW_OK;
     }
 
     void imgMsgHandler(const sensor_msgs::msg::Image::SharedPtr imgMsg)
