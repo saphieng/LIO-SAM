@@ -232,6 +232,8 @@ public:
     {
         sensor_msgs::msg::Image thisImg = *imgMsg;
 
+        // RCLCPP_INFO(get_logger(), "Received image message with timestamp: %f", thisImg.header.stamp.sec + thisImg.header.stamp.nanosec * 1e-9);
+
         // Convert the ROS image message to OpenCV format
         cv_bridge::CvImagePtr cv_ptr = cv_bridge::toCvCopy(thisImg, "mono8");
 
@@ -687,7 +689,10 @@ public:
             // ------ Mask Check ------
             if (enableMasking && (rowIdn < mask_image.rows) && (columnIdn < mask_image.cols) &&
                 mask_image.at<uint8_t>(rowIdn, columnIdn) < 100)
+            {
+                // RCLCPP_WARN(this->get_logger(), "Point is masked. Skipping.");
                 continue;
+            }
     
             // ------ Deskew & Save Point ------
             thisPoint = deskewPoint(&thisPoint, laserCloudIn->points[i].time);

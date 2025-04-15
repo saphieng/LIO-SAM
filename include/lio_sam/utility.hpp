@@ -165,6 +165,12 @@ public:
     vector<double> exclusionBoxV;
     Eigen::Matrix3Xd exclusionBox;
 
+    // Gstreamer Masking Configs
+    string maskTopic;
+    int maskingThreshold;
+    int pixelBuffer;
+    cv::Mat homography;
+
     ParamServer(std::string node_name, const rclcpp::NodeOptions & options) : Node(node_name, options)
     {
         declare_parameter("pointCloudTopic", "points");
@@ -348,18 +354,51 @@ public:
         declare_parameter("originAltitude", -999.999);
         get_parameter("originAltitude", originAltitude);
 
+        // Gstreamer Masking Configs
+        // Declare parameters
+        declare_parameter("maskTopic", "/mask_topic");
+        get_parameter("maskTopic", maskTopic);
+        declare_parameter("maskingThreshold", 100);
+        get_parameter("maskingThreshold", maskingThreshold);
+        declare_parameter("pixelBuffer", 1);
+        get_parameter("pixelBuffer", pixelBuffer);
+        declare_parameter("homography", std::vector<double>{
+                                            1.0, 0.0, 0.0,
+                                            0.0, 1.0, 0.0,
+                                            0.0, 0.0, 1.0});
+
+        std::vector<double> h;
+        get_parameter("homography", h);
+        if (h.size() == 9)
+        {
+            cv::Mat raw_h = cv::Mat(h).reshape(1, 3);
+            raw_h.convertTo(homography, CV_64F); // This is critical
+            cv::Mat flip = (cv::Mat_<double>(3, 3) <<
+                -1.0, 0.0, Horizon_SCAN,
+                0.0, 1.0, 0,
+                0.0, 0.0, 1.0);
+                homography = flip * homography; // still CV_64F
+        }
+        else
+        {
+            RCLCPP_WARN(this->get_logger(), "Homography must have 9 elements. Using identity.");
+            homography = cv::Mat::eye(3, 3, CV_64F);
+        }
+
         usleep(100);
     }
 
     sensor_msgs::msg::Imu imuConverter(const sensor_msgs::msg::Imu& imu_in)
     {
         sensor_msgs::msg::Imu imu_out = imu_in;
+
         // rotate acceleration
         Eigen::Vector3d acc(imu_in.linear_acceleration.x, imu_in.linear_acceleration.y, imu_in.linear_acceleration.z);
         acc = extRot * acc;
         imu_out.linear_acceleration.x = acc.x();
         imu_out.linear_acceleration.y = acc.y();
         imu_out.linear_acceleration.z = acc.z();
+
         // rotate gyroscope
         Eigen::Vector3d gyr(imu_in.angular_velocity.x, imu_in.angular_velocity.y, imu_in.angular_velocity.z);
         gyr = extRot * gyr;

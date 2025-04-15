@@ -55,6 +55,14 @@ def generate_launch_description():
         ),
         Node(
             package='lio_sam',
+            executable='lio_sam_gstreamerMasking',
+            name='lio_sam_gstreamerMasking',
+            parameters=[parameter_file],
+            arguments=['--ros-args', '--log-level', 'info'],
+            output='screen'
+        ),
+        Node(
+            package='lio_sam',
             executable='lio_sam_simpleGpsOdom',
             name='lio_sam_simpleGpsOdom',
             parameters=[parameter_file],

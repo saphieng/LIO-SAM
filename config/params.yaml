@@ -76,7 +76,7 @@
     rotation_tolerance: 6.5  #1000.0 #6.5                   # radians
 
     # CPU Params
-    numberOfCores: 12                            # number of cores for mapping optimization
+    numberOfCores: 10                            # number of cores for mapping optimization
     mappingProcessInterval: 0.1               # seconds, regulate mapping frequency
 
     # Surrounding map
@@ -105,6 +105,15 @@
     globalMapLeafSize: 0.1                        # meters, global map cloud density
 
     # Exclusion box in the Ouster coordinate Frame
-    exclusionBox: [  0.0,  5.0,
-                    -1.5, -0.25,
+    exclusionBox: [  0.0,  6.0,
+                    -1.75, 0.0,
                     -1.0,  5.0 ]
+
+    # Gstreamer masking settings
+    maskTopic: "/segmentation/mask"
+    ousterMaskTopic: "/segmentation/mask/ouster"
+    maskingThreshold: 200
+    pixelBuffer: 5
+    homography: [7.13056176e-01, -1.11434688e+00,  8.76266161e+02,
+                 9.59435995e-05,  6.78997980e-02,  2.32269841e+01,
+                 1.55569508e-04, -1.00454487e-03,  1.00000000e+00]
