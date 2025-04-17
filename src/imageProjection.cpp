@@ -114,6 +114,9 @@ private:
     // GStreamer
     GstElement *pipeline_ = nullptr;
     GstElement *appsink_ = nullptr;
+    json tpsJson;
+    cv::Mat map_x; 
+    cv::Mat map_y;
 
 public:
     ImageProjection(const rclcpp::NodeOptions & options) :
@@ -159,9 +162,114 @@ public:
 
         allocateMemory();
         resetParameters();
+
+        // If we are using TPS params, load and configure them
+        if (!useHomography)
+        {
+
+            std::cout << "Using TPS, parameters from: " << tpsParamsFile << std::endl;
+            // Parse the JSON parameters
+            std::ifstream stream(tpsParamsFile);
+            if (!stream.good())
+            {
+                std::cerr << "Failed to open TPS paramegers json...\n";
+                return;
+            }
+            
+            stream >> tpsJson;
+
+            // Helper to read a 2×N array into two std::vectors<double>
+            auto read_xi = [&](const json &ji)
+            {
+                std::vector<double> xs = ji[0].get<std::vector<double>>();
+                std::vector<double> ys = ji[1].get<std::vector<double>>();
+                return std::make_pair(xs, ys);
+            };
+
+            // Load rbf_x data:
+            auto [xi_x, xi_y] = read_xi(tpsJson["rbf_x"]["xi"]);
+            std::vector<double> nodes_x = tpsJson["rbf_x"]["nodes"].get<std::vector<double>>();
+
+            // rbf_y data:
+            auto [xi2_x, xi2_y] = read_xi(tpsJson["rbf_y"]["xi"]);
+            std::vector<double> nodes_y = tpsJson["rbf_y"]["nodes"].get<std::vector<double>>();
+
+            size_t N = nodes_x.size();
+            if (nodes_y.size() != N || xi_x.size() != N || xi_y.size() != N || xi2_x.size() != N || xi2_y.size() != N)
+            {
+                std::cerr << "Parameter vector sizes mismatch\n";
+                return;
+            }
+
+            // int H = tpsImgHeight, W = tpsImgWidth;
+            int H = N_SCAN;
+            int W = Horizon_SCAN;
+
+            map_x.create(H, W, CV_32FC1);
+            map_y.create(H, W, CV_32FC1);
+        
+            // For each output pixel, evaluate the TPS sums
+            for (int y = 0; y < H; ++y) 
+            {
+                for (int x = 0; x < W; ++x) 
+                {
+                    double dx = 0.0, dy = 0.0;
+            
+                    for (size_t i = 0; i < N; ++i) 
+                    {
+                        double rx = x - xi_x[i];
+                        double ry = y - xi_y[i];
+                        double r  = std::sqrt(rx * rx + ry * ry);
+                        double u  = U(r);
+                        dx += nodes_x[i] * u;
+                        dy += nodes_y[i] * u;
+                    }
+            
+                    map_x.at<float>(y, x) = static_cast<float>(dx);
+                    map_y.at<float>(y, x) = static_cast<float>(dy);
+                }
+            }
+
+            std::cout << "TPS mapping matrix created with size: " << map_x.size() << std::endl;
+            // debugEvaluateTps(xi_x, xi_y, nodes_x, nodes_y);
+        }
+
         initializePipeline();
 
         pcl::console::setVerbosityLevel(pcl::console::L_ERROR);
+    }
+
+    void debugEvaluateTps(const std::vector<double> &xi_x,
+                          const std::vector<double> &xi_y,
+                          const std::vector<double> &nodes_x,
+                          const std::vector<double> &nodes_y)
+    {
+        std::cout << "TPS debug info:" << std::endl;
+        
+        std::vector<std::pair<int, int>> test_pixels = {
+            {100, 50},
+            {500, 100},
+            {1000, 64}};
+
+        for (auto [x, y] : test_pixels)
+        {
+            double dx = 0.0, dy = 0.0;
+            for (size_t i = 0; i < xi_x.size(); ++i)
+            {
+                double rx = x - xi_x[i];
+                double ry = y - xi_y[i];
+                double r = std::sqrt(rx * rx + ry * ry);
+                double u = U(r);
+                dx += nodes_x[i] * u;
+                dy += nodes_y[i] * u;
+            }
+
+            double mapped_x = dx;
+            double mapped_y = dy;
+
+            std::cout << "Input (" << x << ", " << y << ") --> Output ("
+                      << mapped_x << ", " << mapped_y << ")" << std::endl;
+        }
     }
 
     void allocateMemory()
@@ -282,20 +390,31 @@ public:
         cv::Mat mask_output(height, width, CV_8UC1, (void *)map.data, width);
         cv::Mat resized_image, transformed_image, dilated_image, ouster_mask_output;
 
-        cv::resize(mask_output, resized_image, cv::Size(640, 640), 0, 0, cv::INTER_LINEAR);
+        resized_image = mask_output.clone();
 
-        if (self->homography.type() != CV_64FC1 || self->homography.rows != 3 || self->homography.cols != 3) {
-            std::cerr << "Homography has incorrect type or shape: "
-                      << self->homography.type() << " (" 
-                      << self->homography.rows << "x"
-                      << self->homography.cols << ")" << std::endl;
-            return GST_FLOW_ERROR;
+        if (self->useHomography)
+        {
+            cv::resize(mask_output, resized_image, cv::Size(640, 640), 0, 0, cv::INTER_LINEAR);
+
+            if (self->homography.type() != CV_64FC1 || self->homography.rows != 3 || self->homography.cols != 3) {
+                std::cerr << "Homography has incorrect type or shape: "
+                          << self->homography.type() << " (" 
+                          << self->homography.rows << "x"
+                          << self->homography.cols << ")" << std::endl;
+                return GST_FLOW_ERROR;
+            }
+
+            // Apply homography transformation
+            cv::warpPerspective(resized_image, transformed_image, self->homography,
+                                cv::Size(self->Horizon_SCAN, self->N_SCAN), cv::INTER_LINEAR,
+                                cv::BORDER_CONSTANT, cv::Scalar(255));
         }
-
-        // Transform and process
-        cv::warpPerspective(resized_image, transformed_image, self->homography,
-                            cv::Size(self->Horizon_SCAN, self->N_SCAN), cv::INTER_LINEAR,
-                            cv::BORDER_CONSTANT, cv::Scalar(255));
+        else 
+        {
+            // Apply TPS transformation
+            cv::remap(resized_image, transformed_image, self->map_x, self->map_y,
+                      cv::INTER_LINEAR, cv::BORDER_CONSTANT, cv::Scalar(255));
+        }
 
         cv::bitwise_not(transformed_image, transformed_image);
 
@@ -322,13 +441,20 @@ public:
         auto ouster_msg = cv_bridge::CvImage(header, "mono8", ouster_mask_output).toImageMsg();
 
         self->pubMask->publish(*mask_msg);
-        self->pubOusterMask->publish(*ouster_msg);
-        
-        // Store the transformed image in the mask queue
-        MaskData mask_data{ouster_mask_output, header.stamp};
+
+        // Check if there are any black pixels in the ouster_mask_output
+        int black_pixel_count = ouster_mask_output.total() - cv::countNonZero(ouster_mask_output);
+        if (black_pixel_count > 0)
         {
-            std::lock_guard<std::mutex> lock1(self->imgMaskLock);
-            self->imgMaskQueue.push_back(mask_data);
+            // There is at least one black pixel in the image
+            self->pubOusterMask->publish(*ouster_msg);
+        
+            // Store the transformed image in the mask queue
+            MaskData mask_data{ouster_mask_output, header.stamp};
+            {
+                std::lock_guard<std::mutex> lock1(self->imgMaskLock);
+                self->imgMaskQueue.push_back(mask_data);
+            }
         }
 
         return GST_FLOW_OK;

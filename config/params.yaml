@@ -113,7 +113,9 @@
     maskTopic: "/segmentation/mask"
     ousterMaskTopic: "/segmentation/mask/ouster"
     maskingThreshold: 200
-    pixelBuffer: 5
+    pixelBuffer: 10
+    useHomography: false
     homography: [7.13056176e-01, -1.11434688e+00,  8.76266161e+02,
                  9.59435995e-05,  6.78997980e-02,  2.32269841e+01,
                  1.55569508e-04, -1.00454487e-03,  1.00000000e+00]
+    tpsParamsFile: "/home/nvidia/workspace/firefly_ws/src/LIO-SAM/config/tps_params.json"

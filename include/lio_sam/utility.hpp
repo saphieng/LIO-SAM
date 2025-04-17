@@ -17,6 +17,7 @@
 #include <visualization_msgs/msg/marker_array.hpp>
 
 #include <opencv2/opencv.hpp>
+#include <nlohmann/json.hpp>
 
 #include <pcl/kdtree/kdtree_flann.h>  // pcl include kdtree_flann throws error if PCL_NO_PRECOMPILE
                                       // is defined before
@@ -58,6 +59,7 @@
 #include <thread>
 #include <mutex>
 
+using json = nlohmann::json;
 using namespace std;
 
 typedef pcl::PointXYZI PointType;
@@ -169,7 +171,11 @@ public:
     string maskTopic;
     int maskingThreshold;
     int pixelBuffer;
+    bool useHomography;
     cv::Mat homography;
+    string tpsParamsFile;
+    int tpsImgWidth;
+    int tpsImgHeight;
 
     ParamServer(std::string node_name, const rclcpp::NodeOptions & options) : Node(node_name, options)
     {
@@ -362,11 +368,12 @@ public:
         get_parameter("maskingThreshold", maskingThreshold);
         declare_parameter("pixelBuffer", 1);
         get_parameter("pixelBuffer", pixelBuffer);
+        declare_parameter("useHomography", true);
+        get_parameter("useHomography", useHomography);
         declare_parameter("homography", std::vector<double>{
                                             1.0, 0.0, 0.0,
                                             0.0, 1.0, 0.0,
                                             0.0, 0.0, 1.0});
-
         std::vector<double> h;
         get_parameter("homography", h);
         if (h.size() == 9)
@@ -384,6 +391,12 @@ public:
             RCLCPP_WARN(this->get_logger(), "Homography must have 9 elements. Using identity.");
             homography = cv::Mat::eye(3, 3, CV_64F);
         }
+        declare_parameter("tpsParamsFile", "/tps_params.yaml");
+        get_parameter("tpsParamsFile", tpsParamsFile);
+        declare_parameter("tpsImgWidth", 2448);
+        get_parameter("tpsImgWidth", tpsImgWidth);
+        declare_parameter("tpsImgHeight", 2048);
+        get_parameter("tpsImgHeight", tpsImgHeight);
 
         usleep(100);
     }
@@ -559,5 +572,12 @@ auto qos_lidar = rclcpp::QoS(
         qos_profile_lidar.depth
     ),
     qos_profile_lidar);
+
+
+// Thin‑plate spline basis U(r) = r^2 * log(r), with U(0)=0
+static double U(double r) {
+    if (r <= 0) return 0.0;
+    return r*r * std::log(r);
+}  
 
 #endif

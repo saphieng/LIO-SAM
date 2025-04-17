@@ -32,6 +32,7 @@ find_package(Eigen REQUIRED)
 find_package(OpenMP REQUIRED)
 find_package(cv_bridge REQUIRED)
 find_package(PkgConfig REQUIRED)
+find_package(nlohmann_json REQUIRED)
 
 pkg_check_modules(GST REQUIRED gstreamer-1.0 gstreamer-app-1.0)
 
@@ -53,7 +54,7 @@ target_link_libraries(${PROJECT_NAME}_featureExtraction "${cpp_typesupport_targe
 
 add_executable(${PROJECT_NAME}_imageProjection src/imageProjection.cpp)
 ament_target_dependencies(${PROJECT_NAME}_imageProjection rclcpp rclpy std_msgs sensor_msgs geometry_msgs nav_msgs pcl_msgs visualization_msgs tf2 tf2_ros tf2_eigen tf2_sensor_msgs tf2_geometry_msgs OpenCV cv_bridge PCL)
-target_link_libraries(${PROJECT_NAME}_imageProjection "${cpp_typesupport_target}" ${OpenCV_LIBRARIES} ${GST_LIBRARIES}) 
+target_link_libraries(${PROJECT_NAME}_imageProjection "${cpp_typesupport_target}" ${OpenCV_LIBRARIES} ${GST_LIBRARIES} nlohmann_json::nlohmann_json) 
 
 add_executable(${PROJECT_NAME}_imuPreintegration src/imuPreintegration.cpp)
 ament_target_dependencies(${PROJECT_NAME}_imuPreintegration rclcpp rclpy std_msgs sensor_msgs geometry_msgs nav_msgs pcl_msgs visualization_msgs tf2 tf2_ros tf2_eigen tf2_sensor_msgs tf2_geometry_msgs OpenCV PCL GTSAM Eigen)
