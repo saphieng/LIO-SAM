@@ -85,14 +85,14 @@ def generate_launch_description():
         #     arguments=['--ros-args', '--log-level', 'info'],
         #     output='screen'
         # ),
-        Node(
-            package='lio_sam',
-            executable='lio_sam_gstreamerMasking',
-            name='lio_sam_gstreamerMasking',
-            parameters=[parameter_file],
-            arguments=['--ros-args', '--log-level', 'info'],
-            output='screen'
-        ),
+        # Node(
+        #     package='lio_sam',
+        #     executable='lio_sam_gstreamerMasking',
+        #     name='lio_sam_gstreamerMasking',
+        #     parameters=[parameter_file],
+        #     arguments=['--ros-args', '--log-level', 'info'],
+        #     output='screen'
+        # ),
         # Node(
         #     package='rviz2',
         #     executable='rviz2',
@@ -106,11 +106,11 @@ def generate_launch_description():
         #                 IncludeLaunchDescription(PythonLaunchDescriptionSource([octo_launch_file])),
         #                 ],
         # ),
-        # TimerAction(
-        #         period=10.0,
-        #         actions=[LogInfo(msg='Starting Analysis...'),
-        #                 IncludeLaunchDescription(PythonLaunchDescriptionSource([anal_launch_file])),
-        #                 ],
-        # ),
+        TimerAction(
+                period=0.0,
+                actions=[LogInfo(msg='Starting Analysis...'),
+                        IncludeLaunchDescription(PythonLaunchDescriptionSource([anal_launch_file])),
+                        ],
+        ),
 
     ])
