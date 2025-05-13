@@ -13,6 +13,7 @@ find_package(rclcpp REQUIRED)
 find_package(rclpy REQUIRED)
 find_package(cv_bridge REQUIRED)
 find_package(std_msgs REQUIRED)
+find_package(std_srvs REQUIRED)
 find_package(sensor_msgs REQUIRED)
 find_package(geometry_msgs REQUIRED)
 find_package(nav_msgs REQUIRED)
@@ -42,7 +43,7 @@ include_directories(
   ${OpenCV_INCLUDE_DIRS}
 )
 
-rosidl_generate_interfaces(${PROJECT_NAME} "msg/CloudInfo.msg" "srv/SaveMap.srv" DEPENDENCIES std_msgs sensor_msgs)
+rosidl_generate_interfaces(${PROJECT_NAME} "msg/CloudInfo.msg" "srv/SaveMap.srv" "srv/SetGPSOrigin.srv" DEPENDENCIES std_msgs sensor_msgs)
 
 include_directories(include ${pcl_conversions_INCLUDE_DIRS} )
 include_directories(include ${OCTOMAP_INCLUDE_DIRS})
@@ -61,7 +62,7 @@ ament_target_dependencies(${PROJECT_NAME}_imuPreintegration rclcpp rclpy std_msg
 target_link_libraries(${PROJECT_NAME}_imuPreintegration gtsam "${cpp_typesupport_target}")
 
 add_executable(${PROJECT_NAME}_mapOptimization src/mapOptmization.cpp)
-ament_target_dependencies(${PROJECT_NAME}_mapOptimization rclcpp rclpy std_msgs sensor_msgs geometry_msgs nav_msgs pcl_msgs visualization_msgs tf2 tf2_ros tf2_eigen tf2_sensor_msgs tf2_geometry_msgs OpenCV PCL GTSAM)
+ament_target_dependencies(${PROJECT_NAME}_mapOptimization rclcpp rclpy std_msgs sensor_msgs geometry_msgs nav_msgs pcl_msgs std_srvs visualization_msgs tf2 tf2_ros tf2_eigen tf2_sensor_msgs tf2_geometry_msgs OpenCV PCL GTSAM)
 if (OpenMP_CXX_FOUND)
   target_link_libraries(${PROJECT_NAME}_mapOptimization gtsam "${cpp_typesupport_target}" OpenMP::OpenMP_CXX)
 else()
@@ -69,18 +70,21 @@ else()
 endif()
 
 add_executable(${PROJECT_NAME}_simpleGpsOdom src/simpleGpsOdom.cpp)
-ament_target_dependencies(${PROJECT_NAME}_simpleGpsOdom rclcpp rclpy std_msgs sensor_msgs geometry_msgs nav_msgs pcl_msgs visualization_msgs tf2 tf2_ros tf2_eigen tf2_sensor_msgs tf2_geometry_msgs OpenCV PCL)
-# rosidl_target_interfaces(${PROJECT_NAME}_simpleGpsOdom ${PROJECT_NAME} "rosidl_typesupport_cpp")
-target_link_libraries(${PROJECT_NAME}_simpleGpsOdom "${cpp_typesupport_target}") 
-
-add_executable(${PROJECT_NAME}_highResMapping src/highResMapping.cpp)
-ament_target_dependencies(${PROJECT_NAME}_highResMapping rclcpp rclpy std_msgs sensor_msgs geometry_msgs nav_msgs pcl_msgs visualization_msgs tf2 tf2_ros tf2_eigen tf2_sensor_msgs tf2_geometry_msgs OpenCV PCL)
-# rosidl_target_interfaces(${PROJECT_NAME}_highResMapping ${PROJECT_NAME} "rosidl_typesupport_cpp")
-target_link_libraries(${PROJECT_NAME}_highResMapping "${cpp_typesupport_target}") 
+ament_target_dependencies(${PROJECT_NAME}_simpleGpsOdom rclcpp rclpy std_msgs sensor_msgs geometry_msgs nav_msgs pcl_msgs std_srvs visualization_msgs tf2 tf2_ros tf2_eigen tf2_sensor_msgs tf2_geometry_msgs OpenCV PCL)
+target_link_libraries(${PROJECT_NAME}_simpleGpsOdom "${cpp_typesupport_target}" nlohmann_json::nlohmann_json) 
 
 add_executable(${PROJECT_NAME}_gstreamerMasking src/gstreamerMasking.cpp)
 ament_target_dependencies(${PROJECT_NAME}_gstreamerMasking rclcpp sensor_msgs cv_bridge std_msgs sensor_msgs geometry_msgs nav_msgs pcl_msgs visualization_msgs tf2 tf2_ros tf2_eigen tf2_sensor_msgs tf2_geometry_msgs OpenCV PCL)
 target_link_libraries(${PROJECT_NAME}_gstreamerMasking ${OpenCV_LIBRARIES} ${GST_LIBRARIES})
+
+add_executable(${PROJECT_NAME}_waitForGpsOrigin src/waitForGpsOrigin.cpp)
+ament_target_dependencies(${PROJECT_NAME}_waitForGpsOrigin rclcpp std_srvs)
+target_link_libraries(${PROJECT_NAME}_waitForGpsOrigin "${cpp_typesupport_target}") 
+
+install(
+  TARGETS ${PROJECT_NAME}_waitForGpsOrigin
+  DESTINATION lib/${PROJECT_NAME}
+  )
 
 install(
   DIRECTORY launch
@@ -118,11 +122,6 @@ install(
 )
 
 install(
-  TARGETS ${PROJECT_NAME}_highResMapping
-  DESTINATION lib/${PROJECT_NAME}
-)
-
-install(
   TARGETS ${PROJECT_NAME}_gstreamerMasking
   DESTINATION lib/${PROJECT_NAME}
 )
@@ -146,4 +145,3 @@ if(BUILD_TESTING)
 endif()
 
 ament_package()
-

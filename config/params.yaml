@@ -46,6 +46,7 @@
     imuRPYWeight: 0.7
 
     # LIO odom origin
+    originServiceEnabled: false
     originLatitude: 41.024350
     originLongitude: -105.568500
     originAltitude: 2465.18

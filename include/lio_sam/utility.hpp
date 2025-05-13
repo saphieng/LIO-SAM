@@ -120,6 +120,7 @@ public:
     Eigen::Quaterniond extQRPY;
 
     // LIO Simple GPS Odom
+    bool originServiceEnabled;
     float originLatitude;
     float originLongitude;
     float originAltitude;
@@ -353,6 +354,8 @@ public:
         exclusionBox = Eigen::Map<const Eigen::Matrix<double, -1, -1, Eigen::RowMajor>>(exclusionBoxV.data(), 3, 2);
 
         // LIO Simple GPS Odom
+        declare_parameter("originServiceEnabled", false);
+        get_parameter("originServiceEnabled", originServiceEnabled);
         declare_parameter("originLatitude", -91.0);
         get_parameter("originLatitude", originLatitude);
         declare_parameter("originLongitude", -181.0);
