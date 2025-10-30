@@ -1367,6 +1367,8 @@ public:
             transformUpdate();
         } else {
             RCLCPP_WARN(get_logger(), "Not enough features! Only %d edge and %d planar features available.", laserCloudCornerLastDSNum, laserCloudSurfLastDSNum);
+            // Even with low features, still update transform with IMU to prevent complete drift
+            transformUpdate();
         }
     }
 
@@ -1455,7 +1457,12 @@ public:
         }
         else
         {
-            noiseModel::Diagonal::shared_ptr odometryNoise = noiseModel::Diagonal::Variances((Vector(6) << 1e-6, 1e-6, 1e-6, 1e-4, 1e-4, 1e-4).finished());
+            // Balanced noise model: high translation noise (let GPS correct), low rotation noise (trust IMU+LIO)
+            // Roll/Pitch: 1e-4 rad² (0.01 rad = 0.57° std dev) - tight, IMU gravity reference is accurate
+            // Yaw: 1e-3 rad² (0.032 rad = 1.8° std dev) - slightly looser, can drift without magnetometer
+            // X/Y: 0.1 m² (0.316m std dev) - loose, let GPS dominate horizontal position
+            // Z: 0.05 m² (0.224m std dev) - tighter than X/Y, ground plane provides strong constraint
+            noiseModel::Diagonal::shared_ptr odometryNoise = noiseModel::Diagonal::Variances((Vector(6) << 1e-4, 1e-4, 1e-3, 0.1, 0.1, 0.05).finished());
             gtsam::Pose3 poseFrom = pclPointTogtsamPose3(cloudKeyPoses6D->points.back());
             gtsam::Pose3 poseTo   = trans2gtsamPose(transformTobeMapped);
             gtSAMgraph.add(BetweenFactor<Pose3>(cloudKeyPoses3D->size()-1, cloudKeyPoses3D->size(), poseFrom.between(poseTo), odometryNoise));
@@ -1485,13 +1492,6 @@ public:
                 // std::cout << " *** Cloud Key Poses less than threshold *** " << std::endl;
                 return;
             }
-        }
-
-        // pose covariance small, no need to correct
-        if (poseCovariance(3,3) < poseCovThreshold && poseCovariance(4,4) < poseCovThreshold)
-        {
-            // std::cout << " *** Pose Covariance Small *** " << std::endl;
-            return;
         }
 
         // last gps position
@@ -1561,14 +1561,16 @@ public:
                 }
 
                 gtsam::Vector Vector3(3);
-                Vector3 << max(noise_x, 1.0f), max(noise_y, 1.0f), max(noise_z, 1.0f);
+                // Certus RTK: ~2cm horizontal, ~5-8cm vertical accuracy (vertical is 2-3x worse)
+                // Use actual GPS covariance but enforce minimum based on RTK spec
+                Vector3 << max(noise_x, 0.02f), max(noise_y, 0.02f), max(noise_z, 0.05f);
                 noiseModel::Diagonal::shared_ptr gps_noise = noiseModel::Diagonal::Variances(Vector3);
                 gtsam::GPSFactor gps_factor(cloudKeyPoses3D->size(), gtsam::Point3(gps_x, gps_y, gps_z), gps_noise);
                 gtSAMgraph.add(gps_factor);
 
                 aLoopIsClosed = true;
 
-                RCLCPP_INFO(rclcpp::get_logger("rclcpp"), "** GPS Update Performed.");
+                // RCLCPP_INFO(rclcpp::get_logger("rclcpp"), "** GPS Update Performed.");
                 break;
             }
         }

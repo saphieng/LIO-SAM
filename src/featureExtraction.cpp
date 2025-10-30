@@ -79,7 +79,7 @@ public:
         pcl::fromROSMsg(msgIn->cloud_deskewed, *extractedCloud); // new cloud for extraction
 
         calculateSmoothness();
-        //calculateSmoothnessPCL();
+        // calculateSmoothnessPCL();
 
         markOccludedPoints();
 
@@ -93,6 +93,36 @@ public:
         int cloudSize = extractedCloud->points.size();
         for (int i = 5; i < cloudSize - 5; i++)
         {
+            // Filter out ground points to avoid rocky terrain being extracted as edge features
+            // Ground points cause unstable matching in uneven pit environments
+            PointType point = extractedCloud->points[i];
+            
+            // Simple ground filter: points below sensor with downward-facing normal
+            // Assumes sensor height above ground and pitch angle
+            bool isGroundPoint = false;
+            if (point.z < -0.5 && cloudInfo.point_range[i] < 30.0)  // Within 30m and below sensor
+            {
+                // Check if point is part of roughly horizontal surface (ground plane)
+                float verticalAngle = std::atan2(point.z, std::sqrt(point.x*point.x + point.y*point.y));
+                
+                if (verticalAngle < -0.3)  // More than ~17° below horizon is likely ground
+                {
+                    isGroundPoint = true;
+                }
+            }
+            
+            // Skip ground points from edge feature extraction (but keep for surface features)
+            if (isGroundPoint)
+            {
+                cloudNeighborPicked[i] = 0;  // Still allow as surface feature
+                cloudCurvature[i] = 0;       // Zero curvature = won't be edge
+                cloudSmoothness[i].value = 0;
+                cloudSmoothness[i].ind = i;
+                cloudLabel[i] = 0;
+                continue;
+            }
+            
+            // Calculate smoothness for valid non-ground points
             float diffRange = cloudInfo.point_range[i-5] + cloudInfo.point_range[i-4]
                             + cloudInfo.point_range[i-3] + cloudInfo.point_range[i-2]
                             + cloudInfo.point_range[i-1] - cloudInfo.point_range[i] * 10
@@ -100,11 +130,10 @@ public:
                             + cloudInfo.point_range[i+3] + cloudInfo.point_range[i+4]
                             + cloudInfo.point_range[i+5];
 
-            cloudCurvature[i] = diffRange*diffRange;//diffX * diffX + diffY * diffY + diffZ * diffZ;
+            cloudCurvature[i] = diffRange*diffRange;
 
             cloudNeighborPicked[i] = 0;
             cloudLabel[i] = 0;
-            // cloudSmoothness for sorting
             cloudSmoothness[i].value = cloudCurvature[i];
             cloudSmoothness[i].ind = i;
         }
