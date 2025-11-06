@@ -39,8 +39,8 @@
     # IMU Settings
     imuAccNoise: 0.01 # Spatial - 0.062, Certus - 0.003
     imuGyrNoise: 0.001 # Spatial - 0.0067, Certus - 0.0002
-    imuAccBiasN: 0.00001
-    imuGyrBiasN: 0.00001
+    imuAccBiasN: 0.01
+    imuGyrBiasN: 0.001
 
     imuGravity: 9.80511
     imuRPYWeight: 0.9
