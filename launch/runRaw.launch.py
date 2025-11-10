@@ -106,11 +106,11 @@ def generate_launch_description():
                         IncludeLaunchDescription(PythonLaunchDescriptionSource([octo_launch_file])),
                         ],
         ),
-        # TimerAction(
-        #         period=10.0,
-        #         actions=[LogInfo(msg='Starting Analysis...'),
-        #                 IncludeLaunchDescription(PythonLaunchDescriptionSource([anal_launch_file])),
-        #                 ],
-        # ),
+        TimerAction(
+                period=10.0,
+                actions=[LogInfo(msg='Starting Analysis...'),
+                        IncludeLaunchDescription(PythonLaunchDescriptionSource([anal_launch_file])),
+                        ],
+        ),
 
     ])
