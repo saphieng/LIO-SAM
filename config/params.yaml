@@ -99,6 +99,17 @@
     # submap for loop closure
     historyKeyframeFitnessScore: 0.3              # icp threshold, the smaller the better alignment
 
+    # Keyframe Management (for dynamic environments like excavation)
+    maxKeyframeAge: 120.0                         # seconds, maximum age of keyframes to use in scan-to-map (0 to disable)
+    keyframeReplacementEnabled: true              # enable replacement of old keyframes with newer scans
+    keyframeReplacementRadius: 5.0                # meters, replace keyframes within this radius
+    keyframeReplacementMinAge: 30.0               # seconds, minimum age difference to trigger replacement
+                                                  # NOTE: Loop closures are performed FIRST with original data,
+                                                  # then keyframes can be replaced. No keyframes are frozen.
+    keyframePruningEnabled: true                  # enable pruning (deletion) of very old keyframes
+    keyframePruningAge: 240.0                    # seconds, delete keyframes older than this, must be > maxKeyframeAge
+    keyframePruningInterval: 120.0                 # seconds, how often to run pruning check
+
     # Visualization
     globalMapVisualizationSearchRadius: 1000.0    # meters, global map visualization radius
     globalMapVisualizationPoseDensity: 1.0        # meters, global map visualization keyframe density

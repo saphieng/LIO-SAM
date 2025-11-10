@@ -158,6 +158,15 @@ public:
     int   historyKeyframeSearchNum;
     float historyKeyframeFitnessScore;
 
+    // Keyframe Management (for dynamic environments)
+    float maxKeyframeAge;
+    bool  keyframeReplacementEnabled;
+    float keyframeReplacementRadius;
+    float keyframeReplacementMinAge;
+    bool  keyframePruningEnabled;
+    float keyframePruningAge;
+    float keyframePruningInterval;
+
     // global map visualization radius
     float globalMapVisualizationSearchRadius;
     float globalMapVisualizationPoseDensity;
@@ -334,6 +343,21 @@ public:
         get_parameter("historyKeyframeSearchNum", historyKeyframeSearchNum);
         declare_parameter("historyKeyframeFitnessScore", 0.3);
         get_parameter("historyKeyframeFitnessScore", historyKeyframeFitnessScore);
+
+        declare_parameter("maxKeyframeAge", 0.0);
+        get_parameter("maxKeyframeAge", maxKeyframeAge);
+        declare_parameter("keyframeReplacementEnabled", false);
+        get_parameter("keyframeReplacementEnabled", keyframeReplacementEnabled);
+        declare_parameter("keyframeReplacementRadius", 2.0);
+        get_parameter("keyframeReplacementRadius", keyframeReplacementRadius);
+        declare_parameter("keyframeReplacementMinAge", 30.0);
+        get_parameter("keyframeReplacementMinAge", keyframeReplacementMinAge);
+        declare_parameter("keyframePruningEnabled", false);
+        get_parameter("keyframePruningEnabled", keyframePruningEnabled);
+        declare_parameter("keyframePruningAge", 600.0);
+        get_parameter("keyframePruningAge", keyframePruningAge);
+        declare_parameter("keyframePruningInterval", 30.0);
+        get_parameter("keyframePruningInterval", keyframePruningInterval);
 
         declare_parameter("globalMapVisualizationSearchRadius", 1000.0);
         get_parameter("globalMapVisualizationSearchRadius", globalMapVisualizationSearchRadius);

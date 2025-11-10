@@ -148,6 +148,10 @@ public:
     vector<gtsam::noiseModel::Diagonal::shared_ptr> loopNoiseQueue;
     deque<std_msgs::msg::Float64MultiArray> loopInfoVec;
 
+    // Track keyframes used in successful loop closures for deferred replacement
+    std::set<int> keyframesUsedInLoopClosure;
+    std::mutex mtxLoopClosureKeyframes;
+
     nav_msgs::msg::Path globalPath;
 
     Eigen::Affine3f transPointAssociateToMap;
@@ -366,6 +370,63 @@ public:
         return;
     }
     
+    void pruneOldKeyframes()
+    {
+        if (cloudKeyPoses3D->points.empty())
+            return;
+            
+        int originalSize = cloudKeyPoses3D->size();
+        int prunedCount = 0;
+        int nonEmptyCount = 0;
+        
+        // Count non-empty keyframes first
+        for (int i = 0; i < (int)cloudKeyPoses6D->size(); ++i)
+        {
+            if (!cornerCloudKeyFrames[i]->empty())
+                nonEmptyCount++;
+        }
+        
+        // Safety: Keep minimum number of keyframes to avoid empty map
+        int minKeyframesToKeep = 50;  // Always keep at least 50 keyframes with data
+        int maxPrunable = std::max(0, nonEmptyCount - minKeyframesToKeep);
+        
+        if (maxPrunable <= 0)
+        {
+            RCLCPP_DEBUG(get_logger(), 
+                        "Skipping pruning: only %d keyframes with data (minimum: %d)", 
+                        nonEmptyCount, minKeyframesToKeep);
+            return;
+        }
+        
+        // Clear old point cloud data but keep poses for GTSAM continuity
+        for (int i = 0; i < (int)cloudKeyPoses6D->size() && prunedCount < maxPrunable; ++i)
+        {
+            double age = timeLaserInfoCur - cloudKeyPoses6D->points[i].time;
+            
+            if (age > keyframePruningAge)
+            {
+                // Clear the point cloud data to free memory
+                // but keep the pose in cloudKeyPoses3D/6D for GTSAM
+                if (!cornerCloudKeyFrames[i]->empty())
+                {
+                    cornerCloudKeyFrames[i]->clear();
+                    surfCloudKeyFrames[i]->clear();
+                    prunedCount++;
+                }
+            }
+        }
+        
+        if (prunedCount > 0)
+        {
+            RCLCPP_INFO(get_logger(), 
+                       "Pruned %d/%d old keyframes (age > %.1fs), %d keyframes remain with data", 
+                       prunedCount, originalSize, keyframePruningAge, nonEmptyCount - prunedCount);
+            
+            // Clear the map container cache since we removed cloud data
+            laserCloudMapContainer.clear();
+        }
+    }
+    
     void laserCloudInfoHandler(const lio_sam::msg::CloudInfo::SharedPtr msgIn)
     {
         // extract time stamp
@@ -399,6 +460,14 @@ public:
             publishOdometry();
 
             publishFrames();
+            
+            // Periodic keyframe pruning for long-running missions
+            static double timeLastPruning = timeLaserInfoCur;
+            if (keyframePruningEnabled && (timeLaserInfoCur - timeLastPruning >= keyframePruningInterval))
+            {
+                timeLastPruning = timeLaserInfoCur;
+                pruneOldKeyframes();
+            }
         }
     }
 
@@ -553,6 +622,19 @@ public:
             if (pointDistance(globalMapKeyPosesDS->points[i], cloudKeyPoses3D->back()) > globalMapVisualizationSearchRadius)
                 continue;
             int thisKeyInd = (int)globalMapKeyPosesDS->points[i].intensity;
+            
+            // Safety check: skip if point cloud data was pruned
+            if (cornerCloudKeyFrames[thisKeyInd]->empty() || surfCloudKeyFrames[thisKeyInd]->empty())
+                continue;
+            
+            // Apply temporal filtering to global map visualization (respect maxKeyframeAge)
+            if (maxKeyframeAge > 0.0)
+            {
+                double keyframeAge = timeLaserInfoCur - cloudKeyPoses6D->points[thisKeyInd].time;
+                if (keyframeAge > maxKeyframeAge)
+                    continue; // Skip old keyframes in visualization
+            }
+            
             *globalMapKeyFrames += *transformPointCloud(cornerCloudKeyFrames[thisKeyInd],  &cloudKeyPoses6D->points[thisKeyInd]);
             *globalMapKeyFrames += *transformPointCloud(surfCloudKeyFrames[thisKeyInd],    &cloudKeyPoses6D->points[thisKeyInd]);
 
@@ -673,6 +755,18 @@ public:
 
         // add loop constriant
         loopIndexContainer[loopKeyCur] = loopKeyPre;
+        
+        // Mark keyframes involved in this loop closure for potential future replacement
+        // They can be replaced AFTER this loop closure has been processed
+        std::lock_guard<std::mutex> lock(mtxLoopClosureKeyframes);
+        keyframesUsedInLoopClosure.insert(loopKeyPre);
+        // Also mark nearby keyframes that were used in the submap
+        for (int i = -historyKeyframeSearchNum; i <= historyKeyframeSearchNum; ++i)
+        {
+            int keyNear = loopKeyPre + i;
+            if (keyNear >= 0 && keyNear < (int)copy_cloudKeyPoses6D->size())
+                keyframesUsedInLoopClosure.insert(keyNear);
+        }
     }
 
     bool detectLoopClosureDistance(int *latestID, int *closestID)
@@ -774,6 +868,15 @@ public:
             int keyNear = key + i;
             if (keyNear < 0 || keyNear >= cloudSize )
                 continue;
+            
+            // Safety check: skip if point cloud data was pruned
+            if (cornerCloudKeyFrames[keyNear]->empty() || surfCloudKeyFrames[keyNear]->empty())
+            {
+                RCLCPP_WARN_THROTTLE(get_logger(), *get_clock(), 5000,
+                                    "Skipping keyframe %d in loop closure - point cloud data was pruned", keyNear);
+                continue;
+            }
+            
             *nearKeyframes += *transformPointCloud(cornerCloudKeyFrames[keyNear], &copy_cloudKeyPoses6D->points[keyNear]);
             *nearKeyframes += *transformPointCloud(surfCloudKeyFrames[keyNear],   &copy_cloudKeyPoses6D->points[keyNear]);
         }
@@ -952,6 +1055,31 @@ public:
                 break;
         }
 
+        // Apply temporal pruning if enabled (for dynamic environments like excavation)
+        if (maxKeyframeAge > 0.0)
+        {
+            pcl::PointCloud<PointType>::Ptr temporallyFilteredKeyPoses(new pcl::PointCloud<PointType>());
+            for (const auto& pt : surroundingKeyPosesDS->points)
+            {
+                int keyframeIdx = static_cast<int>(pt.intensity);
+                double keyframeAge = timeLaserInfoCur - cloudKeyPoses6D->points[keyframeIdx].time;
+                
+                if (keyframeAge <= maxKeyframeAge)
+                {
+                    temporallyFilteredKeyPoses->push_back(pt);
+                }
+            }
+            *surroundingKeyPosesDS = *temporallyFilteredKeyPoses;
+            
+            if (surroundingKeyPosesDS->points.size() > 0)
+            {
+                RCLCPP_DEBUG(get_logger(), "Temporal filtering: kept %zu/%d keyframes (max age: %.1fs)", 
+                            surroundingKeyPosesDS->points.size(), 
+                            static_cast<int>(surroundingKeyPoses->size()), 
+                            maxKeyframeAge);
+            }
+        }
+
         extractCloud(surroundingKeyPosesDS);
     }
 
@@ -966,6 +1094,11 @@ public:
                 continue;
 
             int thisKeyInd = (int)cloudToExtract->points[i].intensity;
+            
+            // Safety check: skip if point cloud data was pruned
+            if (cornerCloudKeyFrames[thisKeyInd]->empty() || surfCloudKeyFrames[thisKeyInd]->empty())
+                continue;
+            
             if (laserCloudMapContainer.find(thisKeyInd) != laserCloudMapContainer.end()) 
             {
                 // transformed cloud available
@@ -1601,14 +1734,114 @@ public:
         if (saveFrame() == false)
             return;
 
+        // save all the received edge and surf points
+        pcl::PointCloud<PointType>::Ptr thisCornerKeyFrame(new pcl::PointCloud<PointType>());
+        pcl::PointCloud<PointType>::Ptr thisSurfKeyFrame(new pcl::PointCloud<PointType>());
+        pcl::copyPointCloud(*laserCloudCornerLastDS,  *thisCornerKeyFrame);
+        pcl::copyPointCloud(*laserCloudSurfLastDS,    *thisSurfKeyFrame);
+
+        // Check for keyframe replacement BEFORE adding GTSAM factors
+        // If we're revisiting an area, just update the old keyframe and skip creating new one
+        bool performedReplacement = false;
+        if (keyframeReplacementEnabled && cloudKeyPoses3D->points.size() > 0)
+        {
+            // Create thisPose3D early to check for replacement
+            Eigen::Affine3f transStart = pclPointToAffine3f(cloudKeyPoses6D->back());
+            Eigen::Affine3f transFinal = pcl::getTransformation(transformTobeMapped[3], transformTobeMapped[4], transformTobeMapped[5], 
+                                                                transformTobeMapped[0], transformTobeMapped[1], transformTobeMapped[2]);
+            Eigen::Affine3f transBetween = transStart.inverse() * transFinal;
+            float x, y, z, roll, pitch, yaw;
+            pcl::getTranslationAndEulerAngles(transBetween, x, y, z, roll, pitch, yaw);
+            
+            PointType thisPose3D;
+            thisPose3D.x = transformTobeMapped[3] + x;
+            thisPose3D.y = transformTobeMapped[4] + y;
+            thisPose3D.z = transformTobeMapped[5] + z;
+            
+            // Check if we're too close to the most recent keyframe
+            PointType lastKeyframePose = cloudKeyPoses3D->points.back();
+            float distanceToLastKeyframe = pointDistance(thisPose3D, lastKeyframePose);
+            double timeSinceLastKeyframe = timeLaserInfoCur - cloudKeyPoses6D->points.back().time;
+            
+            const float MIN_MOVEMENT_FOR_REPLACEMENT = 2.0 * surroundingkeyframeAddingDistThreshold;
+            const double MIN_TIME_FOR_REPLACEMENT = 5.0;
+            
+            bool allowReplacement = (distanceToLastKeyframe >= MIN_MOVEMENT_FOR_REPLACEMENT) || 
+                                   (timeSinceLastKeyframe >= MIN_TIME_FOR_REPLACEMENT);
+            
+            if (allowReplacement)
+            {
+                std::vector<int> pointSearchInd;
+                std::vector<float> pointSearchSqDis;
+                
+                kdtreeSurroundingKeyPoses->setInputCloud(cloudKeyPoses3D);
+                kdtreeSurroundingKeyPoses->radiusSearch(thisPose3D, keyframeReplacementRadius, pointSearchInd, pointSearchSqDis);
+                
+                int replacementIdx = -1;
+                double oldestAge = keyframeReplacementMinAge;
+                
+                for (int i = 0; i < (int)pointSearchInd.size(); ++i)
+                {
+                    int idx = pointSearchInd[i];
+                    double age = timeLaserInfoCur - cloudKeyPoses6D->points[idx].time;
+                    float distance = pointDistance(thisPose3D, cloudKeyPoses3D->points[idx]);
+                    
+                    const float MIN_DISTANCE_TO_CANDIDATE = 0.3;
+                    
+                    if (age > keyframeReplacementMinAge && age > oldestAge && distance > MIN_DISTANCE_TO_CANDIDATE)
+                    {
+                        oldestAge = age;
+                        replacementIdx = idx;
+                    }
+                }
+                
+                if (replacementIdx >= 0)
+                {
+                    bool usedInLoopClosure = false;
+                    {
+                        std::lock_guard<std::mutex> lock(mtxLoopClosureKeyframes);
+                        usedInLoopClosure = (keyframesUsedInLoopClosure.find(replacementIdx) != keyframesUsedInLoopClosure.end());
+                    }
+                    
+                    RCLCPP_INFO(get_logger(), 
+                               "Replacing keyframe %d (age: %.1fs) at position (%.2f, %.2f, %.2f) with new scan%s - NOT creating new pose", 
+                               replacementIdx, oldestAge,
+                               cloudKeyPoses3D->points[replacementIdx].x,
+                               cloudKeyPoses3D->points[replacementIdx].y,
+                               cloudKeyPoses3D->points[replacementIdx].z,
+                               usedInLoopClosure ? " [was used in loop closure]" : "");
+                    
+                    // Replace the old keyframe clouds with new ones
+                    cornerCloudKeyFrames[replacementIdx] = thisCornerKeyFrame;
+                    surfCloudKeyFrames[replacementIdx] = thisSurfKeyFrame;
+                    
+                    // Update timestamp
+                    cloudKeyPoses6D->points[replacementIdx].time = timeLaserInfoCur;
+                    
+                    // Clear map cache
+                    laserCloudMapContainer.clear();
+                    
+                    if (usedInLoopClosure)
+                    {
+                        std::lock_guard<std::mutex> lock(mtxLoopClosureKeyframes);
+                        keyframesUsedInLoopClosure.erase(replacementIdx);
+                    }
+                    
+                    performedReplacement = true;
+                    
+                    // CRITICAL: Return early - don't add GTSAM factors or new keyframe
+                    // We've updated existing data, that's all we need
+                    return;
+                }
+            }
+        }
+
+        // No replacement - proceed with normal keyframe addition
         // odom factor
         addOdomFactor();
 
         // gps factor
-        // std::cout << "****************************************************" << std::endl;
-        // std::cout << "****************** ADD GPS FACTOR ******************" << std::endl;
         addGPSFactor();
-        // std::cout << "****************************************************" << std::endl;
 
         // loop factor
         addLoopFactor();
@@ -1646,7 +1879,6 @@ public:
         thisPose3D.y = latestEstimate.translation().y();
         thisPose3D.z = latestEstimate.translation().z();
         thisPose3D.intensity = cloudKeyPoses3D->size(); // this can be used as index
-        cloudKeyPoses3D->push_back(thisPose3D);
 
         thisPose6D.x = thisPose3D.x;
         thisPose6D.y = thisPose3D.y;
@@ -1656,7 +1888,6 @@ public:
         thisPose6D.pitch = latestEstimate.rotation().pitch();
         thisPose6D.yaw   = latestEstimate.rotation().yaw();
         thisPose6D.time = timeLaserInfoCur;
-        cloudKeyPoses6D->push_back(thisPose6D);
 
         // cout << "****************************************************" << endl;
         // cout << "Pose covariance:" << endl;
@@ -1671,13 +1902,9 @@ public:
         transformTobeMapped[4] = latestEstimate.translation().y();
         transformTobeMapped[5] = latestEstimate.translation().z();
 
-        // save all the received edge and surf points
-        pcl::PointCloud<PointType>::Ptr thisCornerKeyFrame(new pcl::PointCloud<PointType>());
-        pcl::PointCloud<PointType>::Ptr thisSurfKeyFrame(new pcl::PointCloud<PointType>());
-        pcl::copyPointCloud(*laserCloudCornerLastDS,  *thisCornerKeyFrame);
-        pcl::copyPointCloud(*laserCloudSurfLastDS,    *thisSurfKeyFrame);
-
-        // save key frame cloud
+        // Add new keyframe (normal operation - replacement is handled earlier with early return)
+        cloudKeyPoses3D->push_back(thisPose3D);
+        cloudKeyPoses6D->push_back(thisPose6D);
         cornerCloudKeyFrames.push_back(thisCornerKeyFrame);
         surfCloudKeyFrames.push_back(thisSurfKeyFrame);
 
