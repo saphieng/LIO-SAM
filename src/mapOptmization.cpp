@@ -626,10 +626,10 @@ public:
         // ICP Settings
         static pcl::IterativeClosestPoint<PointType, PointType> icp;
         icp.setMaxCorrespondenceDistance(historyKeyframeSearchRadius*2);
-        icp.setMaximumIterations(100);
-        icp.setTransformationEpsilon(1e-6);
-        icp.setEuclideanFitnessEpsilon(1e-6);
-        icp.setRANSACIterations(0);
+        icp.setMaximumIterations(icpMaxIterations);
+        icp.setTransformationEpsilon(icpTransformationEpsilon);
+        icp.setEuclideanFitnessEpsilon(icpEuclideanFitnessEpsilon);
+        icp.setRANSACIterations(icpRANSACIterations);
 
         // Align clouds
         icp.setInputSource(cureKeyframeCloud);
@@ -1333,7 +1333,7 @@ public:
                             pow(matX.at<float>(4, 0) * 100, 2) +
                             pow(matX.at<float>(5, 0) * 100, 2));
 
-        if (deltaR < 0.05 && deltaT < 0.05) {
+        if (deltaR < optimizationConvergenceRotation && deltaT < optimizationConvergenceTranslation) {
 
             return true; // converged
         }
@@ -1347,10 +1347,11 @@ public:
         
         if (laserCloudCornerLastDSNum > edgeFeatureMinValidNum && laserCloudSurfLastDSNum > surfFeatureMinValidNum)
         {
+            // Build KdTrees once outside the optimization loop (map clouds don't change during iterations)
             kdtreeCornerFromMap->setInputCloud(laserCloudCornerFromMapDS);
             kdtreeSurfFromMap->setInputCloud(laserCloudSurfFromMapDS);
 
-            for (int iterCount = 0; iterCount < 30; iterCount++)
+            for (int iterCount = 0; iterCount < optimizationMaxIterations; iterCount++)
             {
                 laserCloudOri->clear();
                 coeffSel->clear();
@@ -1361,7 +1362,10 @@ public:
                 combineOptimizationCoeffs();
 
                 if (LMOptimization(iterCount) == true)
-                    break;              
+                {
+                    RCLCPP_INFO(get_logger(), "converged in %d iterations.", iterCount + 1);
+                    break;
+                }
             }
 
             transformUpdate();

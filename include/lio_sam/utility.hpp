@@ -158,6 +158,17 @@ public:
     int   historyKeyframeSearchNum;
     float historyKeyframeFitnessScore;
 
+    // ICP Settings
+    int   icpMaxIterations;
+    float icpTransformationEpsilon;
+    float icpEuclideanFitnessEpsilon;
+    int   icpRANSACIterations;
+
+    // Scan-to-map optimization convergence thresholds
+    int   optimizationMaxIterations;
+    float optimizationConvergenceRotation;
+    float optimizationConvergenceTranslation;
+
     // global map visualization radius
     float globalMapVisualizationSearchRadius;
     float globalMapVisualizationPoseDensity;
@@ -334,6 +345,22 @@ public:
         get_parameter("historyKeyframeSearchNum", historyKeyframeSearchNum);
         declare_parameter("historyKeyframeFitnessScore", 0.3);
         get_parameter("historyKeyframeFitnessScore", historyKeyframeFitnessScore);
+
+        declare_parameter("icpMaxIterations", 50);
+        get_parameter("icpMaxIterations", icpMaxIterations);
+        declare_parameter("icpTransformationEpsilon", 1e-6);
+        get_parameter("icpTransformationEpsilon", icpTransformationEpsilon);
+        declare_parameter("icpEuclideanFitnessEpsilon", 1e-6);
+        get_parameter("icpEuclideanFitnessEpsilon", icpEuclideanFitnessEpsilon);
+        declare_parameter("icpRANSACIterations", 0);
+        get_parameter("icpRANSACIterations", icpRANSACIterations);
+
+        declare_parameter("optimizationMaxIterations", 30);
+        get_parameter("optimizationMaxIterations", optimizationMaxIterations);
+        declare_parameter("optimizationConvergenceRotation", 0.05);
+        get_parameter("optimizationConvergenceRotation", optimizationConvergenceRotation);
+        declare_parameter("optimizationConvergenceTranslation", 0.05);
+        get_parameter("optimizationConvergenceTranslation", optimizationConvergenceTranslation);
 
         declare_parameter("globalMapVisualizationSearchRadius", 1000.0);
         get_parameter("globalMapVisualizationSearchRadius", globalMapVisualizationSearchRadius);

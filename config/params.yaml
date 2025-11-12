@@ -62,8 +62,8 @@
                     0.0,  0.0,  1.0 ]
 
     # LOAM feature threshold
-    edgeThreshold: 0.1   # Higher to ignore rocky ground edges, extract only persistent structures (trees, walls)
-    surfThreshold: 0.01  # Keep low for ground plane surface features
+    edgeThreshold: 0.2   # Higher to ignore rocky ground edges, extract only persistent structures (trees, walls)
+    surfThreshold: 0.1  # Keep low for ground plane surface features
     edgeFeatureMinValidNum: 5   # Reduced to handle sparse features in trees
     surfFeatureMinValidNum: 50  # Reduced as fallback
 
@@ -78,7 +78,7 @@
 
     # CPU Params
     numberOfCores: 10                            # number of cores for mapping optimization
-    mappingProcessInterval: 0.05               # seconds, regulate mapping frequency
+    mappingProcessInterval: 0.1                 # seconds, regulate mapping frequency
 
     # Surrounding map
     surroundingkeyframeAddingDistThreshold: 0.5   # meters, regulate keyframe adding threshold
@@ -88,16 +88,22 @@
     # (when loop closure disabled)
 
     # Loop closure
-    loopClosureEnableFlag: true
+    loopClosureEnableFlag: false
     loopClosureFrequency: 1.0                     # Hz, regulate loop closure constraint add frequency
     surroundingKeyframeSize: 50                   # submap size (when loop closure enabled)
-    historyKeyframeSearchRadius: 25.0             # meters, key frame that is within n meters from
-    # current pose will be considerd for loop closure
-    historyKeyframeSearchTimeDiff: 60.0          # seconds, key frame that is n seconds older will be
-    # considered for loop closure
-    historyKeyframeSearchNum: 25                  # number of hostory key frames will be fused into a
-    # submap for loop closure
+    historyKeyframeSearchRadius: 25.0             # meters, key frame that is within n meters from current pose will be considerd for loop closure
+    historyKeyframeSearchTimeDiff: 60.0          # seconds, key frame that is n seconds older will be considered for loop closure
+    historyKeyframeSearchNum: 25                  # number of hostory key frames will be fused into a submap for loop closure
     historyKeyframeFitnessScore: 0.3              # icp threshold, the smaller the better alignment
+    icpMaxIterations: 100                          # maximum number of ICP iterations
+    icpTransformationEpsilon: 1.0e-6              # transformation epsilon for ICP convergence
+    icpEuclideanFitnessEpsilon: 1.0e-6            # euclidean fitness epsilon for ICP convergence  
+    icpRANSACIterations: 0                        # number of RANSAC iterations (0 to disable)
+
+    # Scan-to-map optimization
+    optimizationMaxIterations: 15                 # maximum iterations for scan-to-map optimization
+    optimizationConvergenceRotation: 0.1         # degrees, rotation convergence threshold for LM optimization
+    optimizationConvergenceTranslation: 0.1      # m, translation convergence threshold for LM optimization
 
     # Visualization
     globalMapVisualizationSearchRadius: 1000.0    # meters, global map visualization radius
