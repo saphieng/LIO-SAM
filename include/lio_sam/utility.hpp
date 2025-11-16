@@ -89,7 +89,6 @@ public:
     bool useImuHeadingInitialization;
     bool useGpsElevation;
     float gpsCovThreshold;
-    float poseCovThreshold;
     float gpsPointThreshold;
 
     // Save pcd
@@ -219,8 +218,6 @@ public:
         get_parameter("useGpsElevation", useGpsElevation);
         declare_parameter("gpsCovThreshold", 2.0);
         get_parameter("gpsCovThreshold", gpsCovThreshold);
-        declare_parameter("poseCovThreshold", 25.0);
-        get_parameter("poseCovThreshold", poseCovThreshold);
         declare_parameter("gpsPointThreshold", 5.0);
         get_parameter("gpsPointThreshold", gpsPointThreshold);
 

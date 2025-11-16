@@ -1363,7 +1363,7 @@ public:
 
                 if (LMOptimization(iterCount) == true)
                 {
-                    RCLCPP_INFO(get_logger(), "converged in %d iterations.", iterCount + 1);
+                    // RCLCPP_INFO(get_logger(), "converged in %d iterations.", iterCount + 1);
                     break;
                 }
             }
@@ -1398,12 +1398,6 @@ public:
                 imuQuaternion.setRPY(0, cloudInfo.imu_pitch_init, 0);
                 tf2::Matrix3x3(transformQuaternion.slerp(imuQuaternion, imuWeight)).getRPY(rollMid, pitchMid, yawMid);
                 transformTobeMapped[1] = pitchMid;
-
-                // // slerp yaw
-                // transformQuaternion.setRPY(0, 0, transformTobeMapped[2]);
-                // imuQuaternion.setRPY(0, 0, cloudInfo.imu_yaw_init);
-                // tf2::Matrix3x3(transformQuaternion.slerp(imuQuaternion, imuWeight)).getRPY(rollMid, pitchMid, yawMid);
-                // transformTobeMapped[2] = yawMid;
             }
         }
 
@@ -1609,15 +1603,11 @@ public:
         addOdomFactor();
 
         // gps factor
-        // std::cout << "****************************************************" << std::endl;
-        // std::cout << "****************** ADD GPS FACTOR ******************" << std::endl;
         addGPSFactor();
-        // std::cout << "****************************************************" << std::endl;
 
         // loop factor
         addLoopFactor();
 
-        // std::cout << "****************************************************" << std::endl;
         // gtSAMgraph.print("GTSAM Graph:\n");
 
         // update iSAM
@@ -1810,12 +1800,6 @@ public:
                     imuQuaternion.setRPY(0, cloudInfo.imu_pitch_init, 0);
                     tf2::Matrix3x3(transformQuaternion.slerp(imuQuaternion, imuWeight)).getRPY(rollMid, pitchMid, yawMid);
                     pitch = pitchMid;
-
-                    // // slerp yaw
-                    // transformQuaternion.setRPY(0, 0, yaw);
-                    // imuQuaternion.setRPY(0, 0, cloudInfo.imu_yaw_init);
-                    // tf2::Matrix3x3(transformQuaternion.slerp(imuQuaternion, imuWeight)).getRPY(rollMid, pitchMid, yawMid);
-                    // yaw = yawMid;
                 }
             }
 

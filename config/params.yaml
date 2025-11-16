@@ -20,7 +20,6 @@
     useImuHeadingInitialization: true           # if using GPS data, set to "true"
     useGpsElevation: true                       # if GPS elevation is bad, set to "false"
     gpsCovThreshold: 2.0                        # m^2, RTK should be <0.05, accept up to 2.0 for degraded conditions
-    poseCovThreshold: 25.0                      # m^2, allow GPS when LIO uncertainty exceeds 5m std dev
     gpsPointThreshold: -0.5                      # m, Distance threshold to add GPS factor, negative to disable
 
     # Export settings
@@ -78,7 +77,7 @@
 
     # CPU Params
     numberOfCores: 10                            # number of cores for mapping optimization
-    mappingProcessInterval: 0.1                 # seconds, regulate mapping frequency
+    mappingProcessInterval: 0.05                 # seconds, regulate mapping frequency
 
     # Surrounding map
     surroundingkeyframeAddingDistThreshold: 0.5   # meters, regulate keyframe adding threshold
